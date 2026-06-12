@@ -1,0 +1,85 @@
+name: turf_app
+description: TURF - Real World Territory Capture Game
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # UI
+  cupertino_icons: ^1.0.8
+  google_fonts: ^6.2.1
+  flutter_svg: ^2.0.10+1
+  cached_network_image: ^3.4.1
+  shimmer: ^3.0.0
+  lottie: ^3.1.2
+
+  # Navigation
+  go_router: ^14.2.7
+
+  # State Management
+  flutter_riverpod: ^2.5.1
+  riverpod_annotation: ^2.3.5
+
+  # Supabase
+  supabase_flutter: ^2.5.6
+
+  # Map
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  flutter_map_tile_caching: ^9.1.4
+
+  # GPS
+  geolocator: ^13.0.1
+  permission_handler: ^11.3.1
+
+  # Firebase
+  firebase_core: ^3.4.0
+  firebase_messaging: ^15.1.0
+  flutter_local_notifications: ^17.2.2
+
+  # Image
+  image_picker: ^1.1.2
+  image_cropper: ^8.0.2
+
+  # Storage
+  shared_preferences: ^2.3.2
+  flutter_secure_storage: ^9.2.2
+
+  # Utils
+  intl: ^0.19.0
+  timeago: ^3.7.0
+  uuid: ^4.4.2
+  dio: ^5.7.0
+  connectivity_plus: ^6.0.5
+
+  # Purchases
+  purchases_flutter: ^8.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  build_runner: ^2.4.12
+  riverpod_generator: ^2.4.3
+  flutter_launcher_icons: ^0.14.1
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/icon/app_icon.png"
+  adaptive_icon_background: "assets/icon/app_icon_background.png"
+  adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
+  min_sdk_android: 23
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/icons/
+    - assets/animations/
+    - assets/icon/
