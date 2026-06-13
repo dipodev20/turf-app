@@ -112,7 +112,13 @@ class RunNotifier extends Notifier<RunState> {
   final _distanceCalc = const Distance();
 
   @override
-  RunState build() => const RunState();
+  RunState build() {
+    ref.onDispose(() {
+      _positionSub?.cancel();
+      _timer?.cancel();
+    });
+    return const RunState();
+  }
 
   void startRun() {
     if (state.isRunning) return;
@@ -266,12 +272,6 @@ class RunNotifier extends Notifier<RunState> {
     state = const RunState();
   }
 
-  @override
-  void dispose() {
-    _positionSub?.cancel();
-    _timer?.cancel();
-    super.dispose();
-  }
 }
 
 final runProvider = NotifierProvider<RunNotifier, RunState>(RunNotifier.new);

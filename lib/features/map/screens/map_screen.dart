@@ -78,11 +78,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
               ),
               // Territory polygons
               territoriesAsync.when(
-                data: (territories) => PolygonLayer(
+                data: (territories) => PolygonLayer<Object>(
                   polygons: territories.map((t) => _buildPolygon(t)).toList(),
                 ),
-                loading: () => const PolygonLayer(polygons: []),
-                error: (_, __) => const PolygonLayer(polygons: []),
+                loading: () => const PolygonLayer<Object>(polygons: []),
+                error: (_, __) => const PolygonLayer<Object>(polygons: []),
               ),
               // Run route
               if (runState.routePoints.isNotEmpty)
