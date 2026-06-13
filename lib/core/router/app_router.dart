@@ -36,7 +36,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/onboarding', builder: (c, s) => const OnboardingScreen()),
       GoRoute(
         path: '/auth',
-        redirect: (c, s) => '/auth/login',
+        redirect: (c, s) => s.matchedLocation == '/auth' ? '/auth/login' : null,
         routes: [
           GoRoute(path: 'login', builder: (c, s) => const LoginScreen()),
           GoRoute(path: 'register', builder: (c, s) => const RegisterScreen()),
