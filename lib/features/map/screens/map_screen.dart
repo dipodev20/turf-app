@@ -147,8 +147,29 @@ class _MapScreenState extends ConsumerState<MapScreen>
               child: _buildRunningBanner(runState),
             ),
 
-          // ── ATTACK ALERT ──
-          // Shows when enemy enters your zone (example always hidden unless triggered)
+          // ── CAPTURED NOTIFICATION ──
+          if (runState.justCaptured)
+            Positioned(
+              top: MediaQuery.of(context).size.height * 0.4,
+              left: 20, right: 20,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F0F18),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Color(0xFF34C759), width: 2),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.check_circle_rounded, color: Color(0xFF34C759), size: 24),
+                    const SizedBox(width: 10),
+                    Text('Territory Captured!',
+                      style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white)),
+                  ],
+                ),
+              ),
+            ),
 
           // ── MAP CONTROLS ──
           Positioned(
@@ -183,14 +204,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
           // ── LEGEND ──
           Positioned(
-            bottom: 105,
+            bottom: 82,
             left: 16,
             child: _buildLegend(),
           ),
 
           // ── START/STOP RUN BUTTON ──
           Positioned(
-            bottom: 86,
+            bottom: 20,
             left: 20, right: 20,
             child: _buildRunButton(runState),
           ),

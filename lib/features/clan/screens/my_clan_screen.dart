@@ -540,3 +540,4 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
     );
   }
 }
+// Leave clan functionality is in settings gear button

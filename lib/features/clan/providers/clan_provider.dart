@@ -55,7 +55,7 @@ final clanMessagesProvider = StreamProvider.family<List<ClanMessageModel>, Strin
       .from('clan_messages')
       .stream(primaryKey: ['id'])
       .eq('clan_id', clanId)
-      .order('created_at')
+      .order('created_at', ascending: true)
       .map((data) => data.map((e) => ClanMessageModel.fromJson(e)).toList());
 });
 
