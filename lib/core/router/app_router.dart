@@ -17,31 +17,13 @@ import 'package:turf_app/features/profile/screens/edit_profile_screen.dart';
 import 'package:turf_app/features/auth/providers/auth_provider.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateProvider);
-
-  return GoRouter(
+  final router = GoRouter(
     initialLocation: '/splash',
-    redirect: (context, state) {
-      final isLoggedIn = authState.value != null;
-      final isSplash = state.matchedLocation == '/splash';
-      final isAuth = state.matchedLocation.startsWith('/auth');
-
-      if (isSplash) return null;
-      if (!isLoggedIn && !isAuth) return '/auth/login';
-      if (isLoggedIn && isAuth) return '/map';
-      return null;
-    },
     routes: [
       GoRoute(path: '/splash', builder: (c, s) => const SplashScreen()),
       GoRoute(path: '/onboarding', builder: (c, s) => const OnboardingScreen()),
-      GoRoute(
-        path: '/auth',
-        redirect: (c, s) => s.matchedLocation == '/auth' ? '/auth/login' : null,
-        routes: [
-          GoRoute(path: 'login', builder: (c, s) => const LoginScreen()),
-          GoRoute(path: 'register', builder: (c, s) => const RegisterScreen()),
-        ],
-      ),
+      GoRoute(path: '/auth/login', builder: (c, s) => const LoginScreen()),
+      GoRoute(path: '/auth/register', builder: (c, s) => const RegisterScreen()),
       ShellRoute(
         builder: (context, state, child) => MainShell(child: child),
         routes: [
@@ -69,5 +51,33 @@ final routerProvider = Provider<GoRouter>((ref) {
         ],
       ),
     ],
+    redirect: (context, state) {
+      final authState = ref.read(authStateProvider);
+      final isLoggedIn = authState.value != null;
+      final location = state.matchedLocation;
+
+      if (location == '/splash') return null;
+      if (location == '/onboarding') return null;
+
+      final isAuthScreen = location == '/auth/login' || location == '/auth/register';
+
+      if (!isLoggedIn && !isAuthScreen) return '/auth/login';
+      if (isLoggedIn && isAuthScreen) return '/map';
+      return null;
+    },
   );
+
+  ref.listen(authStateProvider, (prev, next) {
+    final isLoggedIn = next.value != null;
+    final location = router.routerDelegate.currentConfiguration.fullPath;
+
+    if (isLoggedIn && (location == '/auth/login' || location == '/auth/register')) {
+      router.go('/map');
+    } else if (!isLoggedIn && location != '/auth/login' && location != '/auth/register'
+        && location != '/splash' && location != '/onboarding') {
+      router.go('/auth/login');
+    }
+  });
+
+  return router;
 });
