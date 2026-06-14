@@ -212,3 +212,20 @@ class ClanNotifier extends AsyncNotifier<ClanModel?> {
 }
 
 final clanNotifierProvider = AsyncNotifierProvider<ClanNotifier, ClanModel?>(ClanNotifier.new);
+
+  Future<void> deleteClan(String clanId) async {
+    final supabase = ref.read(supabaseProvider);
+    await supabase.from('clan_members').delete().eq('clan_id', clanId);
+    await supabase.from('users').update({'clan_id': null}).eq('clan_id', clanId);
+    await supabase.from('territories').delete().eq('clan_id', clanId);
+    await supabase.from('clans').delete().eq('id', clanId);
+    state = const AsyncData(null);
+    ref.invalidate(myClanProvider);
+    ref.invalidate(currentUserProvider);
+    ref.invalidate(clansProvider);
+  }
+
+  Future<void> deleteMessage(String messageId) async {
+    final supabase = ref.read(supabaseProvider);
+    await supabase.from('clan_messages').delete().eq('id', messageId);
+  }

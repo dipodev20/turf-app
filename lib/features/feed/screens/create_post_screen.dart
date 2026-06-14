@@ -95,7 +95,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                   const SizedBox(width: 8),
                   _typeChip('capture', '🗺️ Capture'),
                   const SizedBox(width: 8),
-                  _typeChip('war', '⚔️ War (auto)'),
+                  // War posts are auto-generated
                   const SizedBox(width: 8),
                   _typeChip('achievement', '🏆 Achievement'),
                 ],

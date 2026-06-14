@@ -125,9 +125,8 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
                   ],
                 ),
               ),
-              if (isBoss)
-                GestureDetector(
-                  onTap: () {},
+              GestureDetector(
+                  onTap: () => _showClanSettings(context, ref, isBoss),
                   child: Container(
                     width: 36, height: 36,
                     decoration: BoxDecoration(
@@ -509,6 +508,71 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
       ),
       loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.accent)),
       error: (e, _) => Center(child: Text('Error: $e')),
+    );
+  }
+
+
+  void _showClanSettings(BuildContext context, WidgetRef ref, bool isBoss) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 36, height: 4,
+              decoration: BoxDecoration(color: const Color(0xFFC0C0C5), borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 16),
+            Text('Clan Settings', style: GoogleFonts.inter(fontSize: 17, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 16),
+            if (!isBoss)
+              ListTile(
+                leading: const Icon(Icons.exit_to_app_rounded, color: Color(0xFFFF3B30)),
+                title: Text('Leave Clan', style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: const Color(0xFFFF3B30))),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await ref.read(clanNotifierProvider.notifier).leaveClan();
+                },
+              ),
+            if (isBoss) ...[
+              ListTile(
+                leading: const Icon(Icons.edit_outlined, color: Color(0xFF5B5BD6)),
+                title: Text('Edit Clan', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                onTap: () => Navigator.pop(context),
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete_outline_rounded, color: Color(0xFFFF3B30)),
+                title: Text('Delete Clan', style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: const Color(0xFFFF3B30))),
+                onTap: () async {
+                  Navigator.pop(context);
+                  showDialog(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      title: Text('Delete Clan?', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                      content: const Text('This will permanently delete the clan and all its territories.'),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                        TextButton(
+                          onPressed: () async {
+                            Navigator.pop(context);
+                            await ref.read(clanNotifierProvider.notifier).deleteClan(widget.clan.id);
+                          },
+                          child: const Text('Delete', style: TextStyle(color: Color(0xFFFF3B30), fontWeight: FontWeight.w700)),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 

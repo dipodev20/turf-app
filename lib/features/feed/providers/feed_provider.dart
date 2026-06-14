@@ -159,3 +159,19 @@ class FeedNotifier extends AsyncNotifier<List<PostModel>> {
 }
 
 final feedNotifierProvider = AsyncNotifierProvider<FeedNotifier, List<PostModel>>(FeedNotifier.new);
+
+  Future<void> deletePost(String postId) async {
+    final supabase = ref.read(supabaseProvider);
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return;
+    await supabase.from('posts').delete().eq('id', postId).eq('author_id', userId);
+    ref.invalidate(feedProvider);
+  }
+
+  Future<void> deleteComment(String commentId, String postId) async {
+    final supabase = ref.read(supabaseProvider);
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return;
+    await supabase.from('comments').delete().eq('id', commentId).eq('user_id', userId);
+    ref.invalidate(commentsProvider(postId));
+  }

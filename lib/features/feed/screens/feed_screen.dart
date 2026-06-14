@@ -436,7 +436,16 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                       itemCount: comments.length,
                       itemBuilder: (context, i) {
                         final c = comments[i];
-                        return Padding(
+                        return Dismissible(
+                          key: Key(c.id),
+                          direction: DismissDirection.endToStart,
+                          background: Container(
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.only(right: 16),
+                            child: const Icon(Icons.delete_rounded, color: Color(0xFFFF3B30)),
+                          ),
+                          onDismissed: (_) => ref.read(feedNotifierProvider.notifier).deleteComment(c.id, widget.post.id),
+                          child: Padding(
                           padding: const EdgeInsets.only(bottom: 14),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
