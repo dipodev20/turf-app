@@ -467,6 +467,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                               ),
                             ],
                           ),
+                          ),
                         );
                       },
                     ),

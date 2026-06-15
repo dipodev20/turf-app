@@ -146,23 +146,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
               left: 16, right: 16,
               child: _buildRunningBanner(runState),
             ),
-          // Capture notification placeholder
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0F0F18),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Color(0xFF34C759), width: 2),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.check_circle_rounded, color: Color(0xFF34C759), size: 24),
-                    const SizedBox(width: 10),
-                    Text('Territory Captured!',
-                      style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white)),
-                  ],
-                ),
-              ),
-            ),
 
           // ── MAP CONTROLS ──
           Positioned(
