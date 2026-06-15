@@ -537,6 +537,7 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
                 onTap: () async {
                   Navigator.pop(context);
                   await ref.read(clanNotifierProvider.notifier).leaveClan();
+                  if (context.mounted) context.go('/clan');
                 },
               ),
             if (isBoss) ...[
@@ -561,6 +562,7 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
                           onPressed: () async {
                             Navigator.pop(context);
                             await ref.read(clanNotifierProvider.notifier).deleteClan(widget.clan.id);
+                            if (context.mounted) context.go('/clan');
                           },
                           child: const Text('Delete', style: TextStyle(color: Color(0xFFFF3B30), fontWeight: FontWeight.w700)),
                         ),

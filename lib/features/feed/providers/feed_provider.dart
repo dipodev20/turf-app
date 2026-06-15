@@ -117,7 +117,7 @@ class FeedNotifier extends AsyncNotifier<List<PostModel>> {
       'created_at': DateTime.now().toIso8601String(),
     });
 
-    ref.invalidate(feedProvider);
+    // state already updated optimistically
   }
 
   Future<void> addComment(String postId, String content) async {

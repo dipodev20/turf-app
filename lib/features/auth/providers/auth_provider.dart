@@ -77,6 +77,7 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
             .single();
 
         state = AsyncData(UserModel.fromJson(data));
+        ref.invalidate(currentUserProvider);
       }
     } catch (e) {
       state = AsyncError(e, StackTrace.current);
@@ -109,6 +110,7 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
             .single();
 
         state = AsyncData(UserModel.fromJson(data));
+        ref.invalidate(currentUserProvider);
       }
     } catch (e) {
       state = AsyncError(e, StackTrace.current);
@@ -157,6 +159,7 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
         .single();
 
     state = AsyncData(UserModel.fromJson(data));
+        ref.invalidate(currentUserProvider);
   }
 }
 
