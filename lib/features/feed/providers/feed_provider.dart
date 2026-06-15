@@ -156,7 +156,6 @@ class FeedNotifier extends AsyncNotifier<List<PostModel>> {
 
     ref.invalidate(commentsProvider(postId));
   }
-}
 
   Future<void> deletePost(String postId) async {
     final supabase = ref.read(supabaseProvider);

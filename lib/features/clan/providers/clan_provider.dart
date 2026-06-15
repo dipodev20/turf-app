@@ -209,7 +209,6 @@ class ClanNotifier extends AsyncNotifier<ClanModel?> {
     ref.invalidate(myClanProvider);
     ref.invalidate(currentUserProvider);
   }
-}
 
   Future<void> deleteClan(String clanId) async {
     final supabase = ref.read(supabaseProvider);
