@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -247,8 +248,47 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
     );
   }
 
+  void _showMessageMenu(BuildContext context, WidgetRef ref, ClanMessageModel msg, bool isMe) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        padding: const EdgeInsets.all(16),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(color: AppTheme.t4, borderRadius: BorderRadius.circular(2))),
+            ListTile(
+              leading: const Icon(Icons.copy_outlined),
+              title: Text('Copy', style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
+              onTap: () {
+                Navigator.pop(context);
+                Clipboard.setData(ClipboardData(text: msg.content));
+              },
+            ),
+            if (isMe) ListTile(
+              leading: const Icon(Icons.delete_outline_rounded, color: AppTheme.red),
+              title: Text('Delete', style: GoogleFonts.inter(fontWeight: FontWeight.w500, color: AppTheme.red)),
+              onTap: () {
+                Navigator.pop(context);
+                ref.read(clanNotifierProvider.notifier).deleteMessage(msg.id);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildMessage(ClanMessageModel msg, bool isMe) {
-    return Padding(
+    return GestureDetector(
+      onLongPress: () => _showMessageMenu(context, ref, msg, isMe),
+      child: Padding(
       padding: EdgeInsets.only(bottom: 12, left: isMe ? 48 : 0, right: isMe ? 0 : 48),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -258,10 +298,11 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
             CircleAvatar(
               radius: 16,
               backgroundColor: AppTheme.accent.withOpacity(0.15),
-              child: Text(
+              backgroundImage: msg.avatarUrl != null ? CachedNetworkImageProvider(msg.avatarUrl!) : null,
+              child: msg.avatarUrl == null ? Text(
                 msg.username.isNotEmpty ? msg.username[0].toUpperCase() : '?',
                 style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.accent),
-              ),
+              ) : null,
             ),
             const SizedBox(width: 8),
           ],
