@@ -146,14 +146,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
               left: 16, right: 16,
               child: _buildRunningBanner(runState),
             ),
-
-          // ── CAPTURED NOTIFICATION ──
-          if (runState.justCaptured)
-            Positioned(
-              top: MediaQuery.of(context).size.height * 0.4,
-              left: 20, right: 20,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          // Capture notification placeholder
                 decoration: BoxDecoration(
                   color: const Color(0xFF0F0F18),
                   borderRadius: BorderRadius.circular(16),

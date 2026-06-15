@@ -211,8 +211,6 @@ class ClanNotifier extends AsyncNotifier<ClanModel?> {
   }
 }
 
-final clanNotifierProvider = AsyncNotifierProvider<ClanNotifier, ClanModel?>(ClanNotifier.new);
-
   Future<void> deleteClan(String clanId) async {
     final supabase = ref.read(supabaseProvider);
     await supabase.from('clan_members').delete().eq('clan_id', clanId);
@@ -229,3 +227,7 @@ final clanNotifierProvider = AsyncNotifierProvider<ClanNotifier, ClanModel?>(Cla
     final supabase = ref.read(supabaseProvider);
     await supabase.from('clan_messages').delete().eq('id', messageId);
   }
+}
+
+final clanNotifierProvider = AsyncNotifierProvider<ClanNotifier, ClanModel?>(ClanNotifier.new);
+

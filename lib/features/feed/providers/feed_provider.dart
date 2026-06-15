@@ -158,14 +158,13 @@ class FeedNotifier extends AsyncNotifier<List<PostModel>> {
   }
 }
 
-final feedNotifierProvider = AsyncNotifierProvider<FeedNotifier, List<PostModel>>(FeedNotifier.new);
-
   Future<void> deletePost(String postId) async {
     final supabase = ref.read(supabaseProvider);
     final userId = supabase.auth.currentUser?.id;
     if (userId == null) return;
     await supabase.from('posts').delete().eq('id', postId).eq('author_id', userId);
-    ref.invalidate(feedProvider);
+    final current = state.value ?? [];
+    state = AsyncData(current.where((p) => p.id != postId).toList());
   }
 
   Future<void> deleteComment(String commentId, String postId) async {
@@ -175,3 +174,7 @@ final feedNotifierProvider = AsyncNotifierProvider<FeedNotifier, List<PostModel>
     await supabase.from('comments').delete().eq('id', commentId).eq('user_id', userId);
     ref.invalidate(commentsProvider(postId));
   }
+}
+
+final feedNotifierProvider = AsyncNotifierProvider<FeedNotifier, List<PostModel>>(FeedNotifier.new);
+
