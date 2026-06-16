@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -178,7 +179,35 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                     ],
                   ),
                 ),
-                const Icon(Icons.more_horiz, color: AppTheme.t3, size: 20),
+GestureDetector(
+                  onTap: () => showModalBottomSheet(
+                    context: context,
+                    backgroundColor: Colors.transparent,
+                    builder: (_) => Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(color: AppTheme.t4, borderRadius: BorderRadius.circular(2))),
+                          ListTile(
+                            leading: const Icon(Icons.delete_outline_rounded, color: AppTheme.red),
+                            title: Text('Delete Post', style: GoogleFonts.inter(fontWeight: FontWeight.w500, color: AppTheme.red)),
+                            onTap: () {
+                              Navigator.pop(context);
+                              ref.read(feedNotifierProvider.notifier).deletePost(post.id);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  child: const Icon(Icons.more_horiz, color: AppTheme.t3, size: 20),
+                ),
               ],
             ),
           ),
@@ -436,15 +465,41 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                       itemCount: comments.length,
                       itemBuilder: (context, i) {
                         final c = comments[i];
-                        return Dismissible(
-                          key: Key(c.id),
-                          direction: DismissDirection.endToStart,
-                          background: Container(
-                            alignment: Alignment.centerRight,
-                            padding: const EdgeInsets.only(right: 16),
-                            child: const Icon(Icons.delete_rounded, color: Color(0xFFFF3B30)),
+                        return GestureDetector(
+                          onLongPress: () => showModalBottomSheet(
+                            context: context,
+                            backgroundColor: Colors.transparent,
+                            builder: (_) => Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 12),
+                                    decoration: BoxDecoration(color: AppTheme.t4, borderRadius: BorderRadius.circular(2))),
+                                  ListTile(
+                                    leading: const Icon(Icons.copy_outlined),
+                                    title: Text('Copy', style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
+                                    onTap: () {
+                                      Navigator.pop(context);
+                                      Clipboard.setData(ClipboardData(text: c.content));
+                                    },
+                                  ),
+                                  ListTile(
+                                    leading: const Icon(Icons.delete_outline_rounded, color: AppTheme.red),
+                                    title: Text('Delete', style: GoogleFonts.inter(fontWeight: FontWeight.w500, color: AppTheme.red)),
+                                    onTap: () {
+                                      Navigator.pop(context);
+                                      ref.read(feedNotifierProvider.notifier).deleteComment(c.id, widget.post.id);
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                          onDismissed: (_) => ref.read(feedNotifierProvider.notifier).deleteComment(c.id, widget.post.id),
                           child: Padding(
                           padding: const EdgeInsets.only(bottom: 14),
                           child: Row(
@@ -466,6 +521,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                                 ),
                               ),
                             ],
+                          ),
                           ),
                           ),
                         );

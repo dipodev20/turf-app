@@ -295,17 +295,22 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
           mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
           children: [
             if (!isMe) ...[
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: AppTheme.accent.withOpacity(0.15),
-                backgroundImage: msg.avatarUrl != null
-                    ? CachedNetworkImageProvider(msg.avatarUrl!) : null,
-                child: msg.avatarUrl == null
-                    ? Text(
-                        msg.username.isNotEmpty ? msg.username[0].toUpperCase() : '?',
-                        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.accent),
-                      )
-                    : null,
+              GestureDetector(
+                onTap: () {
+                  // Navigate to user profile - future feature
+                },
+                child: CircleAvatar(
+                  radius: 16,
+                  backgroundColor: AppTheme.accent.withOpacity(0.15),
+                  backgroundImage: msg.avatarUrl != null
+                      ? CachedNetworkImageProvider(msg.avatarUrl!) : null,
+                  child: msg.avatarUrl == null
+                      ? Text(
+                          msg.username.isNotEmpty ? msg.username[0].toUpperCase() : '?',
+                          style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.accent),
+                        )
+                      : null,
+                ),
               ),
               const SizedBox(width: 8),
             ],
