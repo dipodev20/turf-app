@@ -282,7 +282,6 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
           ],
         ),
       ),
-      ),
     );
   }
 
