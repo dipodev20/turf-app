@@ -522,7 +522,8 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                               ),
                             ],
                           ),
-                        );
+                          ),
+                        ),
                       },
                     ),
               loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.accent)),
