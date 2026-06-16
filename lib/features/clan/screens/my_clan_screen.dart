@@ -290,53 +290,58 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
     return GestureDetector(
       onLongPress: () => _showMessageMenu(context, ref, msg, isMe),
       child: Padding(
-      padding: EdgeInsets.only(bottom: 12, left: isMe ? 48 : 0, right: isMe ? 0 : 48),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-        children: [
-          if (!isMe) ...[
-            CircleAvatar(
-              radius: 16,
-              backgroundColor: AppTheme.accent.withOpacity(0.15),
-              backgroundImage: msg.avatarUrl != null ? CachedNetworkImageProvider(msg.avatarUrl!) : null,
-              child: msg.avatarUrl == null ? Text(
-                msg.username.isNotEmpty ? msg.username[0].toUpperCase() : '?',
-                style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.accent),
-              ) : null,
-            ),
-            const SizedBox(width: 8),
-          ],
-          Flexible(
-            child: Column(
-              crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-              children: [
-                if (!isMe)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 3, left: 2),
-                    child: Text(msg.username, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.t3)),
-                  ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: isMe ? AppTheme.accent : AppTheme.white,
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(18),
-                      topRight: const Radius.circular(18),
-                      bottomLeft: Radius.circular(isMe ? 18 : 4),
-                      bottomRight: Radius.circular(isMe ? 4 : 18),
+        padding: EdgeInsets.only(bottom: 12, left: isMe ? 48 : 0, right: isMe ? 0 : 48),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+          children: [
+            if (!isMe) ...[
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: AppTheme.accent.withOpacity(0.15),
+                backgroundImage: msg.avatarUrl != null
+                    ? CachedNetworkImageProvider(msg.avatarUrl!) : null,
+                child: msg.avatarUrl == null
+                    ? Text(
+                        msg.username.isNotEmpty ? msg.username[0].toUpperCase() : '?',
+                        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.accent),
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 8),
+            ],
+            Flexible(
+              child: Column(
+                crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                children: [
+                  if (!isMe)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 3, left: 2),
+                      child: Text(msg.username,
+                          style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.t3)),
                     ),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)],
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: isMe ? AppTheme.accent : AppTheme.white,
+                      borderRadius: BorderRadius.only(
+                        topLeft: const Radius.circular(18),
+                        topRight: const Radius.circular(18),
+                        bottomLeft: Radius.circular(isMe ? 18 : 4),
+                        bottomRight: Radius.circular(isMe ? 4 : 18),
+                      ),
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)],
+                    ),
+                    child: Text(
+                      msg.content,
+                      style: GoogleFonts.inter(fontSize: 14, color: isMe ? Colors.white : AppTheme.t1),
+                    ),
                   ),
-                  child: Text(
-                    msg.content,
-                    style: GoogleFonts.inter(fontSize: 14, color: isMe ? Colors.white : AppTheme.t1),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
