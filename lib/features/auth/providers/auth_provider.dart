@@ -31,6 +31,26 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
     final user = supabase.auth.currentUser;
     if (user == null) return null;
 
+    // Listen for realtime changes to this user's data
+    final channel = supabase
+        .channel('user_changes')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'users',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'id',
+            value: user.id,
+          ),
+          callback: (payload) {
+            ref.invalidateSelf();
+          },
+        )
+        .subscribe();
+
+    ref.onDispose(() => channel.unsubscribe());
+
     final data = await supabase
         .from('users')
         .select()
