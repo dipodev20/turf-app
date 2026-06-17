@@ -63,7 +63,7 @@ final currentPositionProvider = StreamProvider<Position?>((ref) async* {
   if (permission == LocationPermission.deniedForever) { yield null; return; }
   yield* Geolocator.getPositionStream(
     locationSettings: const LocationSettings(accuracy: LocationAccuracy.best, distanceFilter: 3),
-  ).where((p) => p.accuracy <= 20.0);
+  ).where((p) => p.accuracy <= 40.0);
 });
 
 enum SpeedStatus { walking, cycling, vehicle }
@@ -141,7 +141,7 @@ class RunNotifier extends Notifier<RunState> {
     _positionSub = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(accuracy: LocationAccuracy.best, distanceFilter: 2),
     ).listen((pos) {
-      if (pos.accuracy > 15) return;
+      
       if (_lastPos != null && _lastPosTime != null) {
         final elapsed = DateTime.now().difference(_lastPosTime!).inMilliseconds / 1000.0;
         if (elapsed > 0) {
