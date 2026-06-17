@@ -44,7 +44,7 @@ dependencies:
 
   # Image
   image_picker: ^1.1.2
-  image_cropper: ^12.0.0
+  image_cropper: ^10.0.0
 
   # Storage
   shared_preferences: ^2.3.2
