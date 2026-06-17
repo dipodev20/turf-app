@@ -1,3 +1,4 @@
+import 'package:image_cropper/image_cropper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -43,7 +44,19 @@ class _CreateClanScreenState extends ConsumerState<CreateClanScreen> {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
     if (picked == null) return;
-    setState(() => _flagFile = File(picked.path));
+    final cropped = await ImageCropper().cropImage(
+      sourcePath: picked.path,
+      aspectRatio: const CropAspectRatio(ratioX: 3, ratioY: 2),
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: 'Crop Flag',
+          toolbarColor: const Color(0xFF5B5BD6),
+          toolbarWidgetColor: Colors.white,
+          lockAspectRatio: true,
+        ),
+      ],
+    );
+    if (cropped != null) setState(() => _flagFile = File(cropped.path));
   }
 
   Future<String?> _uploadFlag() async {

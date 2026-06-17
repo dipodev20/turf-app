@@ -55,6 +55,7 @@ dependencies:
   timeago: ^3.7.0
   uuid: ^4.4.2
   dio: ^5.7.0
+  share_plus: ^10.0.0
   connectivity_plus: ^6.0.5
 
   # Purchases

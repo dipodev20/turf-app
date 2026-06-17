@@ -1,3 +1,5 @@
+import 'package:turf_app/features/notifications/notifications_screen.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -43,7 +45,14 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                       children: [
                         Text('Feed', style: GoogleFonts.inter(fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: -0.6)),
                         const Spacer(),
-                        _headerBtn(Icons.notifications_outlined),
+                        GestureDetector(
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+                  child: Container(
+                    width: 36, height: 36,
+                    decoration: BoxDecoration(color: AppTheme.bg, shape: BoxShape.circle),
+                    child: const Icon(Icons.notifications_outlined, size: 18, color: AppTheme.t1),
+                  ),
+                ),
                         const SizedBox(width: 8),
                         _headerBtn(Icons.send_outlined),
                       ],
@@ -234,9 +243,9 @@ GestureDetector(
                 const SizedBox(width: 16),
                 _actionBtn(icon: Icons.chat_bubble_outline_rounded, label: '${post.commentCount}', onTap: () => _showComments(post)),
                 const SizedBox(width: 16),
-                _actionBtn(icon: Icons.share_outlined, label: '', onTap: () {}),
+                _actionBtn(icon: Icons.share_outlined, label: '', onTap: () => Share.share('Check out this post from ${post.clanName} on TURF! 🗺️')),
                 const Spacer(),
-                _actionBtn(icon: Icons.bookmark_border_rounded, label: '', onTap: () {}),
+                _actionBtn(icon: Icons.bookmark_border_rounded, label: '', onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Post saved!'), behavior: SnackBarBehavior.floating))),
               ],
             ),
           ),

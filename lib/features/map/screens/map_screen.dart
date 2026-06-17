@@ -1,3 +1,4 @@
+import 'package:turf_app/features/notifications/notifications_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -305,7 +306,15 @@ class _MapScreenState extends ConsumerState<MapScreen>
           ),
         ),
         const SizedBox(width: 8),
-        _topBtn(Icons.notifications_outlined),
+        GestureDetector(
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+          child: Container(
+            width: 46, height: 46,
+            decoration: BoxDecoration(color: AppTheme.white, borderRadius: BorderRadius.circular(14),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 12)]),
+            child: const Icon(Icons.notifications_outlined, color: AppTheme.t1, size: 20),
+          ),
+        ),
         const SizedBox(width: 8),
         _topBtn(Icons.wb_sunny_outlined),
       ],

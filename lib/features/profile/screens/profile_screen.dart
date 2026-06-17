@@ -1,3 +1,4 @@
+import 'package:share_plus/share_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -136,7 +137,7 @@ class _ProfileBody extends ConsumerWidget {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        _OutlineBtn(label: 'Share', icon: Icons.ios_share_outlined, onTap: () {}),
+                        _OutlineBtn(label: 'Share', icon: Icons.ios_share_outlined, onTap: () => Share.share('Check out my TURF profile! @${user.username} - ${user.territoriesCaptured} territories captured 🗺️')),
                         const SizedBox(width: 10),
                         _FilledBtn(label: 'Edit Profile', icon: Icons.edit_outlined, onTap: () => context.push('/profile/edit')),
                       ],
