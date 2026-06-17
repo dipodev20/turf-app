@@ -478,8 +478,14 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 12),
-                                    decoration: BoxDecoration(color: AppTheme.t4, borderRadius: BorderRadius.circular(2))),
+                                  Container(
+                                    width: 36, height: 4,
+                                    margin: const EdgeInsets.only(bottom: 12),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.t4,
+                                      borderRadius: BorderRadius.circular(2),
+                                    ),
+                                  ),
                                   ListTile(
                                     leading: const Icon(Icons.copy_outlined),
                                     title: Text('Copy', style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
@@ -501,29 +507,31 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                             ),
                           ),
                           child: Padding(
-                          padding: const EdgeInsets.only(bottom: 14),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              CircleAvatar(
-                                radius: 16,
-                                backgroundColor: AppTheme.accent.withOpacity(0.12),
-                                child: Text(c.username.isNotEmpty ? c.username[0].toUpperCase() : '?',
-                                    style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.accent)),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: RichText(
-                                  text: TextSpan(children: [
-                                    TextSpan(text: c.username, style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppTheme.t1, fontSize: 13)),
-                                    TextSpan(text: '  ${c.content}', style: GoogleFonts.inter(color: AppTheme.t2, fontSize: 13)),
-                                  ]),
+                            padding: const EdgeInsets.only(bottom: 14),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                CircleAvatar(
+                                  radius: 16,
+                                  backgroundColor: AppTheme.accent.withOpacity(0.12),
+                                  child: Text(
+                                    c.username.isNotEmpty ? c.username[0].toUpperCase() : '?',
+                                    style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.accent),
+                                  ),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: RichText(
+                                    text: TextSpan(children: [
+                                      TextSpan(text: c.username, style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppTheme.t1, fontSize: 13)),
+                                      TextSpan(text: '  \${c.content}', style: GoogleFonts.inter(color: AppTheme.t2, fontSize: 13)),
+                                    ]),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          ),
-                        ),
+                        );
                       },
                     ),
               loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.accent)),
