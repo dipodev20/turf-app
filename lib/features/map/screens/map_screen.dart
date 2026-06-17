@@ -84,14 +84,26 @@ class _MapScreenState extends ConsumerState<MapScreen>
                 loading: () => const PolygonLayer<Object>(polygons: []),
                 error: (_, __) => const PolygonLayer<Object>(polygons: []),
               ),
-              // Run route
+              // Run route line
               if (runState.routePoints.isNotEmpty)
                 PolylineLayer(
                   polylines: [
                     Polyline(
                       points: runState.routePoints,
                       color: AppTheme.accent.withOpacity(0.85),
-                      strokeWidth: 3.5,
+                      strokeWidth: 3.0,
+                    ),
+                  ],
+                ),
+              // Buffer polygon preview during run
+              if (runState.polygonPoints.isNotEmpty)
+                PolygonLayer<Object>(
+                  polygons: [
+                    Polygon(
+                      points: runState.polygonPoints,
+                      color: AppTheme.accent.withOpacity(0.18),
+                      borderColor: AppTheme.accent.withOpacity(0.5),
+                      borderStrokeWidth: 1.5,
                     ),
                   ],
                 ),
@@ -103,17 +115,21 @@ class _MapScreenState extends ConsumerState<MapScreen>
                 loading: () => const MarkerLayer(markers: []),
                 error: (_, __) => const MarkerLayer(markers: []),
               ),
-              // My position
-              positionAsync.when(
-                data: (pos) {
-                  if (pos == null) return const MarkerLayer(markers: []);
-                  return MarkerLayer(markers: [
-                    _buildMyMarker(LatLng(pos.latitude, pos.longitude)),
-                  ]);
-                },
-                loading: () => const MarkerLayer(markers: []),
-                error: (_, __) => const MarkerLayer(markers: []),
-              ),
+              // My position - use Kalman smoothed position when running
+              Builder(builder: (context) {
+                final smoothed = runState.smoothedPosition;
+                if (smoothed != null) {
+                  return MarkerLayer(markers: [_buildMyMarker(smoothed)]);
+                }
+                return positionAsync.when(
+                  data: (pos) {
+                    if (pos == null) return const MarkerLayer(markers: []);
+                    return MarkerLayer(markers: [_buildMyMarker(LatLng(pos.latitude, pos.longitude))]);
+                  },
+                  loading: () => const MarkerLayer(markers: []),
+                  error: (_, __) => const MarkerLayer(markers: []),
+                );
+              }),
             ],
           ),
 
