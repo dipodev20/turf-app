@@ -382,6 +382,8 @@ class _CreateClanScreenState extends ConsumerState<CreateClanScreen> {
               ],
             ),
           ),
+          const SizedBox(height: 24),
+          _buildArenaSelector(),
         ],
       ),
     );
