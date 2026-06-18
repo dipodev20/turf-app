@@ -159,7 +159,39 @@ class _MapScreenState extends ConsumerState<MapScreen>
               child: _buildTerritoryCounter(),
             ),
 
-          // ── RUNNING BANNER ──
+          // ── GLOBAL ARENA TOGGLE ──
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 160,
+            left: 16,
+            child: GestureDetector(
+              onTap: () => setState(() => _showGlobalArena = !_showGlobalArena),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: _showGlobalArena ? const Color(0xFF5B5BD6) : Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 8)],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(_showGlobalArena ? '🌍' : '🏙️', style: const TextStyle(fontSize: 14)),
+                    const SizedBox(width: 6),
+                    Text(
+                      _showGlobalArena ? 'Global Arena' : 'Local',
+                      style: TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w700,
+                        color: _showGlobalArena ? Colors.white : const Color(0xFF1C1C1E),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+                    // ── RUNNING BANNER ──
           if (runState.isRunning)
             Positioned(
               top: MediaQuery.of(context).padding.top + 124,
