@@ -263,4 +263,13 @@ class RunNotifier extends Notifier<RunState> {
   }
 }
 
+
+// Global Arena territories
+final globalTerritoriesProvider = StreamProvider<List<TerritoryModel>>((ref) {
+  final supabase = ref.watch(supabaseProvider);
+  return supabase
+      .from("territories")
+      .stream(primaryKey: ["id"])
+      .map((data) => data.map((e) => TerritoryModel.fromJson(e)).toList());
+});
 final runProvider = NotifierProvider<RunNotifier, RunState>(RunNotifier.new);
