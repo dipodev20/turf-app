@@ -11,6 +11,7 @@ class ClanModel {
   final bool isOpen;
   final int maxMembers;
   final String? city;
+  final String arenaMode;
   final DateTime createdAt;
 
   const ClanModel({
@@ -26,6 +27,7 @@ class ClanModel {
     this.isOpen = false,
     this.maxMembers = 30,
     this.city,
+    this.arenaMode = 'local',
     required this.createdAt,
   });
 
@@ -43,6 +45,7 @@ class ClanModel {
       isOpen: json['is_open'] ?? false,
       maxMembers: json['max_members'] ?? 30,
       city: json['city'],
+      arenaMode: json['arena_mode'] as String? ?? 'local',
       createdAt: DateTime.parse(json['created_at']),
     );
   }
@@ -60,6 +63,7 @@ class ClanModel {
     'is_open': isOpen,
     'max_members': maxMembers,
     'city': city,
+      'arena_mode': arenaMode,
     'created_at': createdAt.toIso8601String(),
   };
 
