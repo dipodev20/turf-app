@@ -22,6 +22,7 @@ class _CreateClanScreenState extends ConsumerState<CreateClanScreen> {
   final _nameController = TextEditingController();
   final _sloganController = TextEditingController();
   String _selectedColor = '#5B5BD6';
+  String _arenaMode = 'local';
   bool _isOpen = false;
   File? _flagFile;
   bool _loading = false;
@@ -382,6 +383,57 @@ class _CreateClanScreenState extends ConsumerState<CreateClanScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildArenaSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Competition Mode', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.t3, letterSpacing: 0.5)),
+        const SizedBox(height: 12),
+        _arenaOption('local', '🏙️ Local', 'Compete with clans in your city'),
+        const SizedBox(height: 8),
+        _arenaOption('global', '🌍 Global Arena', 'Compete with clans worldwide on a virtual map'),
+      ],
+    );
+  }
+
+  Widget _arenaOption(String value, String title, String subtitle) {
+    final isSelected = _arenaMode == value;
+    return GestureDetector(
+      onTap: () => setState(() => _arenaMode = value),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.accent.withOpacity(0.08) : AppTheme.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected ? AppTheme.accent : AppTheme.border,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Text(title.split(' ')[0], style: const TextStyle(fontSize: 24)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title.substring(title.indexOf(' ') + 1),
+                      style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700,
+                          color: isSelected ? AppTheme.accent : AppTheme.t1)),
+                  Text(subtitle,
+                      style: GoogleFonts.inter(fontSize: 12, color: AppTheme.t3)),
+                ],
+              ),
+            ),
+            if (isSelected)
+              const Icon(Icons.check_circle_rounded, color: AppTheme.accent, size: 20),
+          ],
+        ),
       ),
     );
   }
