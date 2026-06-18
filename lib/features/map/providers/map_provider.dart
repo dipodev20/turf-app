@@ -10,7 +10,7 @@ import 'package:uuid/uuid.dart';
 
 class KalmanFilter {
   double _lat, _lng, _variance;
-  static const double _minAccuracy = 1.0;
+  static const double _minAccuracy = 3.0;
   KalmanFilter(double lat, double lng, double accuracy)
       : _lat = lat, _lng = lng, _variance = accuracy * accuracy;
   LatLng update(double lat, double lng, double accuracy) {
@@ -139,7 +139,7 @@ class RunNotifier extends Notifier<RunState> {
     _timer = Timer.periodic(const Duration(seconds: 1), (_) =>
         state = state.copyWith(durationSeconds: state.durationSeconds + 1));
     _positionSub = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.best, distanceFilter: 2),
+      locationSettings: const LocationSettings(accuracy: LocationAccuracy.best, distanceFilter: 1),
     ).listen((pos) {
       
       if (_lastPos != null && _lastPosTime != null) {
@@ -197,7 +197,7 @@ class RunNotifier extends Notifier<RunState> {
 
   void _checkCapture(List<LatLng> points, double distKm) {
     final closingDist = _dist.as(LengthUnit.Meter, points.first, points.last);
-    if (closingDist < captureRadiusMeters && distKm >= 0.2) {
+    if (closingDist < 80 && distKm >= 0.15) {
       double maxD = 0;
       for (final p in points) {
         final d = _dist.as(LengthUnit.Meter, points.first, p);
