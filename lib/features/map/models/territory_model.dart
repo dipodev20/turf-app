@@ -10,6 +10,8 @@ class TerritoryModel {
   final double areaSqMeters;
   final DateTime capturedAt;
   final String capturedBy;
+  final bool isGlobal;
+  final List<LatLng> virtualPoints;
 
   const TerritoryModel({
     required this.id,
@@ -21,6 +23,8 @@ class TerritoryModel {
     required this.areaSqMeters,
     required this.capturedAt,
     required this.capturedBy,
+    this.isGlobal = false,
+    this.virtualPoints = const [],
   });
 
   factory TerritoryModel.fromJson(Map<String, dynamic> json) {

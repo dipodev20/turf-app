@@ -12,6 +12,8 @@ class ClanModel {
   final int maxMembers;
   final String? city;
   final String arenaMode;
+  final double virtualOffsetLat;
+  final double virtualOffsetLng;
   final DateTime createdAt;
 
   const ClanModel({
@@ -28,6 +30,8 @@ class ClanModel {
     this.maxMembers = 30,
     this.city,
     this.arenaMode = 'local',
+    this.virtualOffsetLat = 0,
+    this.virtualOffsetLng = 0,
     required this.createdAt,
   });
 
@@ -46,6 +50,8 @@ class ClanModel {
       maxMembers: json['max_members'] ?? 30,
       city: json['city'],
       arenaMode: json['arena_mode'] as String? ?? 'local',
+      virtualOffsetLat: (json['virtual_offset_lat'] as num?)?.toDouble() ?? 0,
+      virtualOffsetLng: (json['virtual_offset_lng'] as num?)?.toDouble() ?? 0,
       createdAt: DateTime.parse(json['created_at']),
     );
   }
@@ -64,6 +70,8 @@ class ClanModel {
     'max_members': maxMembers,
     'city': city,
       'arena_mode': arenaMode,
+      'virtual_offset_lat': virtualOffsetLat,
+      'virtual_offset_lng': virtualOffsetLng,
     'created_at': createdAt.toIso8601String(),
   };
 
