@@ -410,7 +410,7 @@ class _CreateClanScreenState extends ConsumerState<CreateClanScreen> {
           color: isSelected ? AppTheme.accent.withOpacity(0.08) : AppTheme.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isSelected ? AppTheme.accent : AppTheme.border,
+            color: isSelected ? AppTheme.accent : const Color(0xFFE5E5EA),
             width: isSelected ? 2 : 1,
           ),
         ),
