@@ -21,6 +21,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
     with SingleTickerProviderStateMixin {
   final MapController _mapController = MapController();
   bool _followUser = true;
+  bool _showGlobalArena = false;
   late AnimationController _pulseController;
   late Animation<double> _pulseAnim;
 
@@ -46,6 +47,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
   Widget build(BuildContext context) {
     final positionAsync = ref.watch(currentPositionProvider);
     final territoriesAsync = ref.watch(territoriesProvider);
+    final globalTerritoriesAsync = ref.watch(globalTerritoriesProvider);
     final livePlayersAsync = ref.watch(livePlayersProvider);
     final runState = ref.watch(runProvider);
     final myClan = ref.watch(myClanProvider).value;
@@ -377,6 +379,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
   Widget _buildTerritoryCounter() {
     final territoriesAsync = ref.watch(territoriesProvider);
+    final globalTerritoriesAsync = ref.watch(globalTerritoriesProvider);
     return territoriesAsync.when(
       data: (territories) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
