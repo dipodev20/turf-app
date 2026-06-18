@@ -96,15 +96,16 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     ),
                   ],
                 ),
-              // Buffer polygon preview during run
-              if (runState.polygonPoints.isNotEmpty)
-                PolygonLayer<Object>(
-                  polygons: [
-                    Polygon(
-                      points: runState.polygonPoints,
-                      color: AppTheme.accent.withOpacity(0.18),
-                      borderColor: AppTheme.accent.withOpacity(0.5),
-                      borderStrokeWidth: 1.5,
+              // Thick polyline preview during run (PostGIS handles polygon on server)
+              if (runState.routePoints.isNotEmpty)
+                PolylineLayer(
+                  polylines: [
+                    Polyline(
+                      points: runState.routePoints,
+                      color: AppTheme.accent.withOpacity(0.25),
+                      strokeWidth: 20.0,
+                      strokeCap: StrokeCap.round,
+                      strokeJoin: StrokeJoin.round,
                     ),
                   ],
                 ),

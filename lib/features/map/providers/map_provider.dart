@@ -213,24 +213,28 @@ class RunNotifier extends Notifier<RunState> {
     if (user == null) return;
     final userData = ref.read(currentUserProvider).value;
     if (userData?.clanId == null) return;
-    final poly = buildBufferPolygon(points, 8.0);
-    if (poly.length < 3) return;
+
     final clan = await supabase.from("clans").select("name,flag_url,color")
         .eq("id", userData!.clanId!).single();
-    await supabase.from("territories").insert({
-      "id": const Uuid().v4(), "clan_id": userData.clanId,
-      "clan_name": clan["name"], "clan_flag_url": clan["flag_url"],
-      "clan_color": clan["color"] ?? "#5B5BD6",
-      "points": poly.map((p) => [p.latitude, p.longitude]).toList(),
-      "area_sq_meters": _calcArea(poly),
-      "captured_at": DateTime.now().toIso8601String(), "captured_by": user.id,
+
+    // Use PostGIS RPC for accurate buffer polygon
+    final result = await supabase.rpc("capture_territory", params: {
+      "p_clan_id": userData.clanId,
+      "p_clan_name": clan["name"],
+      "p_clan_flag_url": clan["flag_url"] ?? "",
+      "p_clan_color": clan["color"] ?? "#5B5BD6",
+      "p_captured_by": user.id,
+      "p_points": points.map((p) => [p.latitude, p.longitude]).toList(),
+      "p_buffer_meters": 8.0,
     });
-    await supabase.from("users").update(
-        {"territories_captured": userData.territoriesCaptured + 1}).eq("id", user.id);
-    await supabase.rpc("increment_territory_count", params: {"clan_id": userData.clanId});
-    ref.invalidate(currentUserProvider);
-    state = state.copyWith(routePoints: [], polygonPoints: [], justCaptured: true);
-    Timer(const Duration(seconds: 3), () { if (state.isRunning) state = state.copyWith(justCaptured: false); });
+
+    if (result != null && result["success"] == true) {
+      ref.invalidate(currentUserProvider);
+      state = state.copyWith(routePoints: [], polygonPoints: [], justCaptured: true);
+      Timer(const Duration(seconds: 3), () {
+        if (state.isRunning) state = state.copyWith(justCaptured: false);
+      });
+    }
   }
 
   double _calcArea(List<LatLng> pts) {
