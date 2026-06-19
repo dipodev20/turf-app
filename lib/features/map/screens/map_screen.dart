@@ -300,6 +300,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
     );
   }
 
+  Color _accuracyColor(double accuracy) {
+    if (accuracy <= 10) return const Color(0xFF34C759);
+    if (accuracy <= 20) return const Color(0xFFFFCC00);
+    return const Color(0xFFFF3B30);
+  }
+
   Marker _buildMyMarker(LatLng point) {
     return Marker(
       point: point,

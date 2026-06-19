@@ -203,6 +203,7 @@ GestureDetector(
                         children: [
                           Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 12),
                             decoration: BoxDecoration(color: AppTheme.t4, borderRadius: BorderRadius.circular(2))),
+                          if (post.authorId == ref.read(supabaseProvider).auth.currentUser?.id)
                           ListTile(
                             leading: const Icon(Icons.delete_outline_rounded, color: AppTheme.red),
                             title: Text('Delete Post', style: GoogleFonts.inter(fontWeight: FontWeight.w500, color: AppTheme.red)),
