@@ -119,6 +119,21 @@ class _MapScreenState extends ConsumerState<MapScreen>
                 loading: () => const MarkerLayer(markers: []),
                 error: (_, __) => const MarkerLayer(markers: []),
               ),
+              // GPS accuracy circle
+              if (runState.isRunning && runState.smoothedPosition != null)
+                CircleLayer(
+                  circles: [
+                    CircleMarker(
+                      point: runState.smoothedPosition!,
+                      radius: runState.gpsAccuracy.clamp(5.0, 50.0),
+                      useRadiusInMeter: true,
+                      color: _accuracyColor(runState.gpsAccuracy).withOpacity(0.15),
+                      borderColor: _accuracyColor(runState.gpsAccuracy).withOpacity(0.5),
+                      borderStrokeWidth: 1.5,
+                    ),
+                  ],
+                ),
+
               // My position - use Kalman smoothed position when running
               Builder(builder: (context) {
                 final smoothed = runState.smoothedPosition;

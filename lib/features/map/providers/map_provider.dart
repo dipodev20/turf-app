@@ -3,18 +3,22 @@ import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:sensors_plus/sensors_plus.dart';
 import 'package:turf_app/features/auth/providers/auth_provider.dart';
 import 'package:turf_app/features/map/models/territory_model.dart';
 import 'package:turf_app/core/constants/app_constants.dart';
 import 'package:uuid/uuid.dart';
 
+// ── KALMAN FILTER ──────────────────────────────────────────────
 class KalmanFilter {
   double _lat, _lng, _variance;
   static const double _minAccuracy = 3.0;
+
   KalmanFilter(double lat, double lng, double accuracy)
       : _lat = lat, _lng = lng, _variance = accuracy * accuracy;
+
   LatLng update(double lat, double lng, double accuracy) {
-    final q = accuracy * accuracy > _minAccuracy ? accuracy * accuracy : _minAccuracy;
+    final q = max(accuracy * accuracy, _minAccuracy);
     _variance += q;
     final k = _variance / (_variance + q);
     _lat = _lat + k * (lat - _lat);
@@ -22,12 +26,48 @@ class KalmanFilter {
     _variance = (1 - k) * _variance;
     return LatLng(_lat, _lng);
   }
+
   LatLng get position => LatLng(_lat, _lng);
 }
 
+// ── CONVEX HULL (Graham scan) ──────────────────────────────────
+List<LatLng> convexHull(List<LatLng> points) {
+  if (points.length < 3) return points;
+  
+  // Find bottom-most point
+  var pivot = points.reduce((a, b) => 
+    a.latitude < b.latitude || (a.latitude == b.latitude && a.longitude < b.longitude) ? a : b);
+  
+  // Sort by polar angle
+  final sorted = points.where((p) => p != pivot).toList()
+    ..sort((a, b) {
+      final angleA = atan2(a.latitude - pivot.latitude, a.longitude - pivot.longitude);
+      final angleB = atan2(b.latitude - pivot.latitude, b.longitude - pivot.longitude);
+      return angleA.compareTo(angleB);
+    });
+  
+  // Graham scan
+  final hull = <LatLng>[pivot];
+  for (final p in sorted) {
+    while (hull.length > 1) {
+      final cross = (hull[hull.length-1].longitude - hull[hull.length-2].longitude) *
+                    (p.latitude - hull[hull.length-2].latitude) -
+                    (hull[hull.length-1].latitude - hull[hull.length-2].latitude) *
+                    (p.longitude - hull[hull.length-2].longitude);
+      if (cross <= 0) hull.removeLast();
+      else break;
+    }
+    hull.add(p);
+  }
+  return hull;
+}
+
+// ── BUFFER POLYGON ─────────────────────────────────────────────
 List<LatLng> buildBufferPolygon(List<LatLng> path, double radiusMeters) {
   if (path.length < 2) return [];
   final List<LatLng> left = [], right = [];
+  final buf = radiusMeters / 111320;
+  
   for (int i = 0; i < path.length; i++) {
     final p = path[i];
     double dLat, dLng;
@@ -38,20 +78,15 @@ List<LatLng> buildBufferPolygon(List<LatLng> path, double radiusMeters) {
       dLat = p.latitude - path[i - 1].latitude;
       dLng = p.longitude - path[i - 1].longitude;
     }
-    final len = (dLat * dLat + dLng * dLng > 0)
-        ? (dLat * dLat + dLng * dLng) >= 0 ? (dLat * dLat + dLng * dLng) : 1.0
-        : 1.0;
-    final sqrtLen = len > 0 ? len : 1.0;
-    final buf = radiusMeters / 111320;
-    final import_sqrt = 1.0;
-    final perpLat = -dLng / sqrtLen * buf * 0.00001;
-    final perpLng = dLat / sqrtLen * buf * 0.00001;
-    left.add(LatLng(p.latitude + perpLat, p.longitude + perpLng));
-    right.add(LatLng(p.latitude - perpLat, p.longitude - perpLng));
+    final len = sqrt(dLat * dLat + dLng * dLng);
+    if (len == 0) continue;
+    left.add(LatLng(p.latitude - dLng / len * buf, p.longitude + dLat / len * buf));
+    right.add(LatLng(p.latitude + dLng / len * buf, p.longitude - dLat / len * buf));
   }
   return [...left, ...right.reversed];
 }
 
+// ── PROVIDERS ──────────────────────────────────────────────────
 final currentPositionProvider = StreamProvider<Position?>((ref) async* {
   bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
   if (!serviceEnabled) { yield null; return; }
@@ -62,7 +97,10 @@ final currentPositionProvider = StreamProvider<Position?>((ref) async* {
   }
   if (permission == LocationPermission.deniedForever) { yield null; return; }
   yield* Geolocator.getPositionStream(
-    locationSettings: const LocationSettings(accuracy: LocationAccuracy.best, distanceFilter: 3),
+    locationSettings: const LocationSettings(
+      accuracy: LocationAccuracy.best,
+      distanceFilter: 3,
+    ),
   ).where((p) => p.accuracy <= 40.0);
 });
 
@@ -88,6 +126,14 @@ final livePlayersProvider = StreamProvider<List<LivePlayerModel>>((ref) {
       .map((e) => LivePlayerModel.fromJson(e)).toList());
 });
 
+// Global Arena territories
+final globalTerritoriesProvider = StreamProvider<List<TerritoryModel>>((ref) {
+  final supabase = ref.watch(supabaseProvider);
+  return supabase.from("territories").stream(primaryKey: ["id"])
+      .map((data) => data.map((e) => TerritoryModel.fromJson(e)).toList());
+});
+
+// ── RUN STATE ──────────────────────────────────────────────────
 class RunState {
   final bool isRunning;
   final List<LatLng> routePoints;
@@ -98,59 +144,119 @@ class RunState {
   final SpeedStatus speedStatus;
   final bool justCaptured;
   final LatLng? smoothedPosition;
+  final double gpsAccuracy;      // For accuracy indicator
+
   const RunState({
-    this.isRunning = false, this.routePoints = const [], this.polygonPoints = const [],
-    this.distanceKm = 0, this.durationSeconds = 0, this.currentSpeedKmh = 0,
-    this.speedStatus = SpeedStatus.walking, this.justCaptured = false, this.smoothedPosition,
+    this.isRunning = false,
+    this.routePoints = const [],
+    this.polygonPoints = const [],
+    this.distanceKm = 0,
+    this.durationSeconds = 0,
+    this.currentSpeedKmh = 0,
+    this.speedStatus = SpeedStatus.walking,
+    this.justCaptured = false,
+    this.smoothedPosition,
+    this.gpsAccuracy = 0,
   });
-  RunState copyWith({bool? isRunning, List<LatLng>? routePoints, List<LatLng>? polygonPoints,
-    double? distanceKm, int? durationSeconds, double? currentSpeedKmh,
-    SpeedStatus? speedStatus, bool? justCaptured, LatLng? smoothedPosition}) {
+
+  RunState copyWith({
+    bool? isRunning,
+    List<LatLng>? routePoints,
+    List<LatLng>? polygonPoints,
+    double? distanceKm,
+    int? durationSeconds,
+    double? currentSpeedKmh,
+    SpeedStatus? speedStatus,
+    bool? justCaptured,
+    LatLng? smoothedPosition,
+    double? gpsAccuracy,
+  }) {
     return RunState(
-      isRunning: isRunning ?? this.isRunning, routePoints: routePoints ?? this.routePoints,
-      polygonPoints: polygonPoints ?? this.polygonPoints, distanceKm: distanceKm ?? this.distanceKm,
+      isRunning: isRunning ?? this.isRunning,
+      routePoints: routePoints ?? this.routePoints,
+      polygonPoints: polygonPoints ?? this.polygonPoints,
+      distanceKm: distanceKm ?? this.distanceKm,
       durationSeconds: durationSeconds ?? this.durationSeconds,
       currentSpeedKmh: currentSpeedKmh ?? this.currentSpeedKmh,
-      speedStatus: speedStatus ?? this.speedStatus, justCaptured: justCaptured ?? this.justCaptured,
+      speedStatus: speedStatus ?? this.speedStatus,
+      justCaptured: justCaptured ?? this.justCaptured,
       smoothedPosition: smoothedPosition ?? this.smoothedPosition,
+      gpsAccuracy: gpsAccuracy ?? this.gpsAccuracy,
     );
   }
 }
 
+// ── RUN NOTIFIER ───────────────────────────────────────────────
 class RunNotifier extends Notifier<RunState> {
   StreamSubscription<Position>? _positionSub;
+  StreamSubscription<AccelerometerEvent>? _accelSub;
   Timer? _timer;
   final _dist = const Distance();
   KalmanFilter? _kalman;
   Position? _lastPos;
   DateTime? _lastPosTime;
+  
+  // Sensor fusion
+  double _accelX = 0, _accelY = 0, _accelZ = 0;
+  LatLng? _deadReckonPos;
+  DateTime? _lastAccelTime;
 
   @override
   RunState build() {
-    ref.onDispose(() { _positionSub?.cancel(); _timer?.cancel(); });
+    ref.onDispose(() {
+      _positionSub?.cancel();
+      _accelSub?.cancel();
+      _timer?.cancel();
+    });
     return const RunState();
   }
 
   void startRun() {
     if (state.isRunning) return;
-    _kalman = null; _lastPos = null; _lastPosTime = null;
-    state = state.copyWith(isRunning: true, routePoints: [], polygonPoints: [],
-        distanceKm: 0, durationSeconds: 0, justCaptured: false);
+    _kalman = null;
+    _lastPos = null;
+    _lastPosTime = null;
+    _deadReckonPos = null;
+
+    state = state.copyWith(
+      isRunning: true, routePoints: [], polygonPoints: [],
+      distanceKm: 0, durationSeconds: 0, justCaptured: false,
+    );
+
     _timer = Timer.periodic(const Duration(seconds: 1), (_) =>
         state = state.copyWith(durationSeconds: state.durationSeconds + 1));
+
+    // Start accelerometer for sensor fusion
+    _accelSub = accelerometerEventStream().listen((event) {
+      _accelX = event.x;
+      _accelY = event.y;
+      _accelZ = event.z;
+      _lastAccelTime = DateTime.now();
+    });
+
     _positionSub = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.best, distanceFilter: 1),
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.best,
+        distanceFilter: 1,
+      ),
     ).listen((pos) {
-      
+      if (pos.accuracy > 50) return;
+
+      // Anti-teleport
       if (_lastPos != null && _lastPosTime != null) {
         final elapsed = DateTime.now().difference(_lastPosTime!).inMilliseconds / 1000.0;
         if (elapsed > 0) {
           final d = _dist.as(LengthUnit.Meter,
-              LatLng(_lastPos!.latitude, _lastPos!.longitude), LatLng(pos.latitude, pos.longitude));
-          if (d / elapsed > 15) return;
+              LatLng(_lastPos!.latitude, _lastPos!.longitude),
+              LatLng(pos.latitude, pos.longitude));
+          if (d / elapsed > 20) return;
         }
       }
-      _lastPos = pos; _lastPosTime = DateTime.now();
+
+      _lastPos = pos;
+      _lastPosTime = DateTime.now();
+
+      // Kalman filter
       LatLng smoothed;
       if (_kalman == null) {
         _kalman = KalmanFilter(pos.latitude, pos.longitude, pos.accuracy);
@@ -158,25 +264,40 @@ class RunNotifier extends Notifier<RunState> {
       } else {
         smoothed = _kalman!.update(pos.latitude, pos.longitude, pos.accuracy);
       }
-      _onSmoothed(smoothed, pos.speed * 3.6);
+
+      _onSmoothed(smoothed, pos.speed * 3.6, pos.accuracy);
     });
   }
 
-  void _onSmoothed(LatLng smoothed, double speedKmh) {
+  void _onSmoothed(LatLng smoothed, double speedKmh, double accuracy) {
     speedKmh = speedKmh.clamp(0.0, 50.0);
     final speedStatus = getSpeedStatus(speedKmh);
     final newPoints = [...state.routePoints, smoothed];
+
     double newDist = state.distanceKm;
     if (state.routePoints.isNotEmpty) {
       final seg = _dist.as(LengthUnit.Meter, state.routePoints.last, smoothed);
       if (seg < 50) newDist += seg / 1000;
     }
-    final poly = newPoints.length >= 3 ? buildBufferPolygon(newPoints, 8.0) : state.polygonPoints;
-    state = state.copyWith(routePoints: newPoints, polygonPoints: poly,
-        distanceKm: newDist, currentSpeedKmh: speedKmh,
-        speedStatus: speedStatus, smoothedPosition: smoothed);
+
+    // Buffer polygon for preview
+    final poly = newPoints.length >= 3
+        ? buildBufferPolygon(newPoints, 8.0)
+        : state.polygonPoints;
+
+    state = state.copyWith(
+      routePoints: newPoints,
+      polygonPoints: poly,
+      distanceKm: newDist,
+      currentSpeedKmh: speedKmh,
+      speedStatus: speedStatus,
+      smoothedPosition: smoothed,
+      gpsAccuracy: accuracy,
+    );
+
     _updateLive(smoothed, speedKmh);
-    if (speedStatus != SpeedStatus.vehicle && newPoints.length >= 20 && newDist >= 0.2) {
+
+    if (speedStatus != SpeedStatus.vehicle && newPoints.length >= 15 && newDist >= 0.15) {
       _checkCapture(newPoints, newDist);
     }
   }
@@ -203,7 +324,7 @@ class RunNotifier extends Notifier<RunState> {
         final d = _dist.as(LengthUnit.Meter, points.first, p);
         if (d > maxD) maxD = d;
       }
-      if (maxD > 30) _captureTerritory(List.from(points));
+      if (maxD > 20) _captureTerritory(List.from(points));
     }
   }
 
@@ -214,10 +335,10 @@ class RunNotifier extends Notifier<RunState> {
     final userData = ref.read(currentUserProvider).value;
     if (userData?.clanId == null) return;
 
-    final clan = await supabase.from("clans").select("name,flag_url,color")
+    final clan = await supabase.from("clans")
+        .select("name,flag_url,color")
         .eq("id", userData!.clanId!).single();
 
-    // Use PostGIS RPC for accurate buffer polygon
     final result = await supabase.rpc("capture_territory", params: {
       "p_clan_id": userData.clanId,
       "p_clan_name": clan["name"],
@@ -248,8 +369,14 @@ class RunNotifier extends Notifier<RunState> {
   }
 
   Future<void> stopRun() async {
-    _positionSub?.cancel(); _timer?.cancel();
-    _positionSub = null; _timer = null; _kalman = null;
+    _positionSub?.cancel();
+    _accelSub?.cancel();
+    _timer?.cancel();
+    _positionSub = null;
+    _accelSub = null;
+    _timer = null;
+    _kalman = null;
+
     final supabase = ref.read(supabaseProvider);
     final user = supabase.auth.currentUser;
     if (user != null && state.distanceKm > 0) {
@@ -263,13 +390,4 @@ class RunNotifier extends Notifier<RunState> {
   }
 }
 
-
-// Global Arena territories
-final globalTerritoriesProvider = StreamProvider<List<TerritoryModel>>((ref) {
-  final supabase = ref.watch(supabaseProvider);
-  return supabase
-      .from("territories")
-      .stream(primaryKey: ["id"])
-      .map((data) => data.map((e) => TerritoryModel.fromJson(e)).toList());
-});
 final runProvider = NotifierProvider<RunNotifier, RunState>(RunNotifier.new);
