@@ -505,6 +505,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                                       Clipboard.setData(ClipboardData(text: c.content));
                                     },
                                   ),
+                                  if (c.userId == Supabase.instance.client.auth.currentUser?.id)
                                   ListTile(
                                     leading: const Icon(Icons.delete_outline_rounded, color: AppTheme.red),
                                     title: Text('Delete', style: GoogleFonts.inter(fontWeight: FontWeight.w500, color: AppTheme.red)),
@@ -525,10 +526,14 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                                 CircleAvatar(
                                   radius: 16,
                                   backgroundColor: AppTheme.accent.withOpacity(0.12),
-                                  child: Text(
-                                    c.username.isNotEmpty ? c.username[0].toUpperCase() : '?',
-                                    style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.accent),
-                                  ),
+                                  backgroundImage: c.avatarUrl != null && c.avatarUrl!.isNotEmpty
+                                      ? CachedNetworkImageProvider(c.avatarUrl!) : null,
+                                  child: c.avatarUrl == null || c.avatarUrl!.isEmpty
+                                      ? Text(
+                                          c.username.isNotEmpty ? c.username[0].toUpperCase() : '?',
+                                          style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.accent),
+                                        )
+                                      : null,
                                 ),
                                 const SizedBox(width: 10),
                                 Expanded(

@@ -166,6 +166,8 @@ class ClanNotifier extends AsyncNotifier<ClanModel?> {
 
     // Update member count
     await supabase.rpc('increment_member_count', params: {'clan_id': request.clanId});
+    ref.invalidate(currentUserProvider);
+    ref.invalidate(myClanProvider);
 
     ref.invalidate(clanMembersProvider(request.clanId));
     ref.invalidate(joinRequestsProvider(request.clanId));

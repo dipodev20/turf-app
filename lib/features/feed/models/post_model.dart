@@ -53,13 +53,13 @@ class PostModel {
     );
   }
 
-  PostModel copyWith({bool? isLiked, int? likeCount}) {
+  PostModel copyWith({bool? isLiked, int? likeCount, int? commentCount}) {
     return PostModel(
       id: id, clanId: clanId, clanName: clanName, clanFlagUrl: clanFlagUrl,
       authorId: authorId, authorName: authorName, type: type,
       content: content, imageUrl: imageUrl, metadata: metadata,
       likeCount: likeCount ?? this.likeCount,
-      commentCount: commentCount,
+      commentCount: commentCount ?? this.commentCount,
       isLiked: isLiked ?? this.isLiked,
       city: city, createdAt: createdAt,
     );
