@@ -1,3 +1,4 @@
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:turf_app/features/notifications/notifications_screen.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter/services.dart';
@@ -203,7 +204,7 @@ GestureDetector(
                         children: [
                           Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 12),
                             decoration: BoxDecoration(color: AppTheme.t4, borderRadius: BorderRadius.circular(2))),
-                          if (post.authorId == ref.read(supabaseProvider).auth.currentUser?.id)
+                          if (post.authorId == Supabase.instance.client.auth.currentUser?.id)
                           ListTile(
                             leading: const Icon(Icons.delete_outline_rounded, color: AppTheme.red),
                             title: Text('Delete Post', style: GoogleFonts.inter(fontWeight: FontWeight.w500, color: AppTheme.red)),
@@ -534,7 +535,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                                   child: RichText(
                                     text: TextSpan(children: [
                                       TextSpan(text: c.username, style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppTheme.t1, fontSize: 13)),
-                                      TextSpan(text: '  \${c.content}', style: GoogleFonts.inter(color: AppTheme.t2, fontSize: 13)),
+                                      TextSpan(text: '  ${c.content}', style: GoogleFonts.inter(color: AppTheme.t2, fontSize: 13)),
                                     ]),
                                   ),
                                 ),
