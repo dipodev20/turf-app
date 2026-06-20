@@ -50,7 +50,9 @@ final commentsProvider = FutureProvider.family<List<CommentModel>, String>((ref,
 class FeedNotifier extends AsyncNotifier<List<PostModel>> {
   @override
   Future<List<PostModel>> build() async {
-    return ref.watch(feedProvider('All')).value ?? [];
+    // Watch feedProvider and copy to own state
+    final result = await ref.watch(feedProvider('All').future);
+    return result;
   }
 
   Future<void> toggleLike(PostModel post) async {
