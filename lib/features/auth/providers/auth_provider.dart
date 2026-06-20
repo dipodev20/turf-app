@@ -10,14 +10,6 @@ final authStateProvider = StreamProvider<User?>((ref) {
   return Supabase.instance.client.auth.onAuthStateChange.map((e) => e.session?.user);
 });
 
-// Manual refresh for clan sync
-extension CurrentUserNotifierX on CurrentUserNotifier {
-  Future<void> refreshUser() async {
-    ref.invalidateSelf();
-    await future;
-  }
-}
-
 final currentUserProvider = FutureProvider<UserModel?>((ref) async {
   final supabase = ref.watch(supabaseProvider);
   final user = supabase.auth.currentUser;
