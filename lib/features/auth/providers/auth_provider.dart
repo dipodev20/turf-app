@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:turf_app/features/auth/models/user_model.dart';
@@ -33,7 +34,7 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
 
     // Listen for realtime changes to this user's data
     final channel = supabase
-        .channel('user_changes')
+        .channel('user_changes_\${user.id}')
         .onPostgresChanges(
           event: PostgresChangeEvent.update,
           schema: 'public',
@@ -49,7 +50,15 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
         )
         .subscribe();
 
-    ref.onDispose(() => channel.unsubscribe());
+    // Also poll every 5 seconds to catch missed realtime events
+    final timer = Timer.periodic(const Duration(seconds: 5), (_) {
+      ref.invalidateSelf();
+    });
+
+    ref.onDispose(() {
+      channel.unsubscribe();
+      timer.cancel();
+    });
 
     final data = await supabase
         .from('users')
