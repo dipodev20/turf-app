@@ -50,9 +50,25 @@ final commentsProvider = FutureProvider.family<List<CommentModel>, String>((ref,
 class FeedNotifier extends AsyncNotifier<List<PostModel>> {
   @override
   Future<List<PostModel>> build() async {
-    // Watch feedProvider and copy to own state
-    final result = await ref.watch(feedProvider('All').future);
-    return result;
+    final supabase = ref.read(supabaseProvider);
+    final userId = supabase.auth.currentUser?.id;
+
+    final data = await supabase
+        .from('posts')
+        .select()
+        .order('created_at', ascending: false)
+        .limit(50);
+
+    final posts = data.map((e) => PostModel.fromJson(e)).toList();
+    if (userId == null) return posts;
+
+    final likes = await supabase
+        .from('post_likes')
+        .select('post_id')
+        .eq('user_id', userId);
+    final likedIds = (likes as List).map((l) => l['post_id'] as String).toSet();
+
+    return posts.map((p) => p.copyWith(isLiked: likedIds.contains(p.id))).toList();
   }
 
   Future<void> toggleLike(PostModel post) async {
@@ -155,6 +171,12 @@ class FeedNotifier extends AsyncNotifier<List<PostModel>> {
       );
       state = AsyncData(updated);
     }
+
+    // Update comment count in local state
+    final currentPosts = state.value ?? [];
+    state = AsyncData(currentPosts.map((p) => p.id == postId
+        ? p.copyWith(commentCount: newCount)
+        : p).toList());
 
     ref.invalidate(commentsProvider(postId));
   }
