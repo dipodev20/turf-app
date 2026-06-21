@@ -22,12 +22,21 @@ class _MapScreenState extends ConsumerState<MapScreen>
   final MapController _mapController = MapController();
   bool _followUser = true;
   bool _showGlobalArena = false;
+  LatLng? _animatedPosition;
+  LatLng? _targetPosition;
   late AnimationController _pulseController;
+  AnimationController? _moveController;
+  Animation<double>? _moveAnimation;
+  LatLng? _fromPosition;
   late Animation<double> _pulseAnim;
 
   @override
   void initState() {
     super.initState();
+    _moveController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
@@ -40,10 +49,40 @@ class _MapScreenState extends ConsumerState<MapScreen>
   @override
   void dispose() {
     _pulseController.dispose();
+    _moveController?.dispose();
     super.dispose();
   }
 
-  @override
+  void _animateToPosition(LatLng newPos) {
+    if (_animatedPosition == null) {
+      setState(() => _animatedPosition = newPos);
+      return;
+    }
+
+    _fromPosition = _animatedPosition;
+    _targetPosition = newPos;
+
+    _moveController?.reset();
+    _moveAnimation = CurvedAnimation(
+      parent: _moveController!,
+      curve: Curves.easeInOut,
+    );
+
+    _moveController?.addListener(() {
+      if (_fromPosition == null || _targetPosition == null) return;
+      final t = _moveAnimation!.value;
+      setState(() {
+        _animatedPosition = LatLng(
+          _fromPosition!.latitude + (_targetPosition!.latitude - _fromPosition!.latitude) * t,
+          _fromPosition!.longitude + (_targetPosition!.longitude - _fromPosition!.longitude) * t,
+        );
+      });
+    });
+
+    _moveController?.forward();
+  }
+
+    @override
   Widget build(BuildContext context) {
     final positionAsync = ref.watch(currentPositionProvider);
     final territoriesAsync = ref.watch(territoriesProvider);
@@ -120,11 +159,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
                 error: (_, __) => const MarkerLayer(markers: []),
               ),
               // GPS accuracy circle
-              if (runState.isRunning && runState.smoothedPosition != null)
+              if (runState.isRunning && _animatedPosition != null)
                 CircleLayer(
                   circles: [
                     CircleMarker(
-                      point: runState.smoothedPosition!,
+                      point: _animatedPosition!,
                       radius: runState.gpsAccuracy.clamp(5.0, 50.0),
                       useRadiusInMeter: true,
                       color: _accuracyColor(runState.gpsAccuracy).withOpacity(0.15),
@@ -134,20 +173,29 @@ class _MapScreenState extends ConsumerState<MapScreen>
                   ],
                 ),
 
-              // My position - use Kalman smoothed position when running
+              // My position - animated smooth movement
               Builder(builder: (context) {
                 final smoothed = runState.smoothedPosition;
+                final rawPos = positionAsync.value;
+
+                LatLng? newPos;
                 if (smoothed != null) {
-                  return MarkerLayer(markers: [_buildMyMarker(smoothed)]);
+                  newPos = smoothed;
+                } else if (rawPos != null) {
+                  newPos = LatLng(rawPos.latitude, rawPos.longitude);
                 }
-                return positionAsync.when(
-                  data: (pos) {
-                    if (pos == null) return const MarkerLayer(markers: []);
-                    return MarkerLayer(markers: [_buildMyMarker(LatLng(pos.latitude, pos.longitude))]);
-                  },
-                  loading: () => const MarkerLayer(markers: []),
-                  error: (_, __) => const MarkerLayer(markers: []),
-                );
+
+                if (newPos != null && newPos != _targetPosition) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    _animateToPosition(newPos!);
+                    if (_followUser) {
+                      _mapController.move(newPos, _mapController.camera.zoom);
+                    }
+                  });
+                }
+
+                if (_animatedPosition == null) return const MarkerLayer(markers: []);
+                return MarkerLayer(markers: [_buildMyMarker(_animatedPosition!)]);
               }),
             ],
           ),
