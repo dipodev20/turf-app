@@ -80,20 +80,30 @@ class FeedNotifier extends AsyncNotifier<List<PostModel>> {
     final index = currentState.indexWhere((p) => p.id == post.id);
     if (index == -1) return;
 
+    // Optimistic update FIRST - instant UI response
+    final updated = [...currentState];
     if (post.isLiked) {
-      await supabase.from('post_likes').delete()
-          .eq('post_id', post.id)
-          .eq('user_id', userId);
-      await supabase.from('posts').update({'like_count': post.likeCount - 1}).eq('id', post.id);
-      final updated = [...currentState];
       updated[index] = post.copyWith(isLiked: false, likeCount: post.likeCount - 1);
-      state = AsyncData(updated);
     } else {
-      await supabase.from('post_likes').insert({'post_id': post.id, 'user_id': userId});
-      await supabase.from('posts').update({'like_count': post.likeCount + 1}).eq('id', post.id);
-      final updated = [...currentState];
       updated[index] = post.copyWith(isLiked: true, likeCount: post.likeCount + 1);
-      state = AsyncData(updated);
+    }
+    state = AsyncData(updated);
+
+    // Then update DB (trigger handles like_count)
+    try {
+      if (post.isLiked) {
+        await supabase.from('post_likes').delete()
+            .eq('post_id', post.id)
+            .eq('user_id', userId);
+      } else {
+        await supabase.from('post_likes').insert({
+          'post_id': post.id,
+          'user_id': userId,
+        });
+      }
+    } catch (e) {
+      // Rollback on error
+      state = AsyncData(currentState);
     }
   }
 
