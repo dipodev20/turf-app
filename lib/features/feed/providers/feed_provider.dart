@@ -172,12 +172,6 @@ class FeedNotifier extends AsyncNotifier<List<PostModel>> {
       state = AsyncData(updated);
     }
 
-    // Update comment count in local state
-    final currentPosts = state.value ?? [];
-    state = AsyncData(currentPosts.map((p) => p.id == postId
-        ? p.copyWith(commentCount: newCount)
-        : p).toList());
-
     ref.invalidate(commentsProvider(postId));
   }
 
