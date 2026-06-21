@@ -248,7 +248,7 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
     );
   }
 
-  void _showMessageMenu(BuildContext context, WidgetRef ref, ClanMessageModel msg, bool isMe) {
+  void _showMessageMenu(BuildContext context, WidgetRef ref, ClanMessageModel msg, bool isMe, bool isBoss, String currentUserId) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -264,6 +264,14 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
             Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(color: AppTheme.t4, borderRadius: BorderRadius.circular(2))),
             ListTile(
+              leading: const Icon(Icons.reply_rounded, color: AppTheme.accent),
+              title: Text('Reply', style: GoogleFonts.inter(fontWeight: FontWeight.w500, color: AppTheme.accent)),
+              onTap: () {
+                Navigator.pop(context);
+                setState(() => _replyingTo = msg);
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.copy_outlined),
               title: Text('Copy', style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
               onTap: () {
@@ -271,12 +279,36 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
                 Clipboard.setData(ClipboardData(text: msg.content));
               },
             ),
-            if (isMe) ListTile(
+            if (isMe || isBoss) ListTile(
               leading: const Icon(Icons.delete_outline_rounded, color: AppTheme.red),
               title: Text('Delete', style: GoogleFonts.inter(fontWeight: FontWeight.w500, color: AppTheme.red)),
               onTap: () {
                 Navigator.pop(context);
                 ref.read(clanNotifierProvider.notifier).deleteMessage(msg.id);
+              },
+            ),
+            if (isBoss && !isMe) ListTile(
+              leading: const Icon(Icons.person_remove_rounded, color: AppTheme.red),
+              title: Text('Kick from clan', style: GoogleFonts.inter(fontWeight: FontWeight.w500, color: AppTheme.red)),
+              onTap: () {
+                Navigator.pop(context);
+                showDialog(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: Text('Kick ${msg.username}?', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                    content: const Text('This member will be removed from the clan.'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          ref.read(clanNotifierProvider.notifier).kickMember(msg.userId, widget.clan.id);
+                        },
+                        child: const Text('Kick', style: TextStyle(color: AppTheme.red, fontWeight: FontWeight.w700)),
+                      ),
+                    ],
+                  ),
+                );
               },
             ),
           ],
@@ -287,7 +319,7 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
 
   Widget _buildMessage(ClanMessageModel msg, bool isMe) {
     return GestureDetector(
-      onLongPress: () => _showMessageMenu(context, ref, msg, isMe),
+      onLongPress: () => _showMessageMenu(context, ref, msg, isMe, widget.clan.bossId == ref.read(supabaseProvider).auth.currentUser?.id, ref.read(supabaseProvider).auth.currentUser?.id ?? ''),,
       child: Padding(
         padding: EdgeInsets.only(bottom: 12, left: isMe ? 48 : 0, right: isMe ? 0 : 48),
         child: Row(

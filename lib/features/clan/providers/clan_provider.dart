@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:turf_app/features/auth/providers/auth_provider.dart';
 import 'package:turf_app/features/clan/models/clan_model.dart';
@@ -49,18 +50,58 @@ final clanMembersProvider = FutureProvider.family<List<ClanMemberModel>, String>
 });
 
 // Clan messages (realtime)
-final clanMessagesProvider = StreamProvider.family<List<ClanMessageModel>, String>((ref, clanId) {
+final clanMessagesProvider = StreamProvider.family<List<ClanMessageModel>, String>((ref, clanId) async* {
   final supabase = ref.watch(supabaseProvider);
-  return supabase
+  
+  // Initial load
+  final initial = await supabase
       .from('clan_messages')
-      .stream(primaryKey: ['id'])
+      .select()
       .eq('clan_id', clanId)
-      .order('created_at', ascending: true)
-      .map((data) {
-        final messages = data.map((e) => ClanMessageModel.fromJson(e)).toList();
-        messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-        return messages;
-      });
+      .order('created_at', ascending: true);
+  
+  var messages = initial.map((e) => ClanMessageModel.fromJson(e)).toList();
+  yield messages;
+
+  // Listen for new messages via realtime
+  final controller = StreamController<List<ClanMessageModel>>();
+  
+  final channel = supabase
+      .channel('clan_messages_$clanId')
+      .onPostgresChanges(
+        event: PostgresChangeEvent.insert,
+        schema: 'public',
+        table: 'clan_messages',
+        filter: PostgresChangeFilter(
+          type: PostgresChangeFilterType.eq,
+          column: 'clan_id',
+          value: clanId,
+        ),
+        callback: (payload) {
+          final newMsg = ClanMessageModel.fromJson(payload.newRecord);
+          messages = [...messages, newMsg];
+          messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+          controller.add(messages);
+        },
+      )
+      .onPostgresChanges(
+        event: PostgresChangeEvent.delete,
+        schema: 'public',
+        table: 'clan_messages',
+        callback: (payload) {
+          final deletedId = payload.oldRecord['id'];
+          messages = messages.where((m) => m.id != deletedId).toList();
+          controller.add(messages);
+        },
+      )
+      .subscribe();
+
+  ref.onDispose(() {
+    channel.unsubscribe();
+    controller.close();
+  });
+
+  yield* controller.stream;
 });
 
 // Join requests
@@ -216,7 +257,16 @@ class ClanNotifier extends AsyncNotifier<ClanModel?> {
     ref.invalidate(currentUserProvider);
   }
 
-  Future<void> deleteClan(String clanId) async {
+  Future<void> kickMember(String userId, String clanId) async {
+    final supabase = ref.read(supabaseProvider);
+    await supabase.from('clan_members').delete()
+        .eq('user_id', userId).eq('clan_id', clanId);
+    await supabase.from('users').update({'clan_id': null}).eq('id', userId);
+    await supabase.rpc('decrement_member_count', params: {'clan_id': clanId});
+    ref.invalidate(clanMembersProvider(clanId));
+  }
+
+    Future<void> deleteClan(String clanId) async {
     final supabase = ref.read(supabaseProvider);
     await supabase.from('clan_members').delete().eq('clan_id', clanId);
     await supabase.from('users').update({'clan_id': null}).eq('clan_id', clanId);
