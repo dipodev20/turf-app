@@ -320,7 +320,7 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
 
   Widget _buildMessage(ClanMessageModel msg, bool isMe) {
     return GestureDetector(
-      onLongPress: () => _showMessageMenu(context, ref, msg, isMe, widget.clan.bossId == ref.read(supabaseProvider).auth.currentUser?.id, ref.read(supabaseProvider).auth.currentUser?.id ?? ''),,
+      onLongPress: () => _showMessageMenu(context, ref, msg, isMe, widget.clan.bossId == ref.read(supabaseProvider).auth.currentUser?.id, ref.read(supabaseProvider).auth.currentUser?.id ?? ''),
       child: Padding(
         padding: EdgeInsets.only(bottom: 12, left: isMe ? 48 : 0, right: isMe ? 0 : 48),
         child: Row(
