@@ -229,8 +229,13 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
                 onTap: () {
                   final text = _msgController.text.trim();
                   if (text.isEmpty) return;
-                  ref.read(clanNotifierProvider.notifier).sendMessage(widget.clan.id, text);
+                  final reply = _replyingTo;
+                  setState(() => _replyingTo = null);
                   _msgController.clear();
+                  final fullText = reply != null
+                      ? '↩ \${reply.username}: \${reply.content}\n\$text'
+                      : text;
+                  ref.read(clanNotifierProvider.notifier).sendMessage(widget.clan.id, fullText);
                 },
                 child: Container(
                   width: 44, height: 44,
@@ -304,6 +309,8 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
                         onPressed: () {
                           Navigator.pop(context);
                           ref.read(clanNotifierProvider.notifier).kickMember(msg.userId, widget.clan.id);
+                          // Refresh members list
+                          ref.invalidate(clanMembersProvider(widget.clan.id));
                         },
                         child: const Text('Kick', style: TextStyle(color: AppTheme.red, fontWeight: FontWeight.w700)),
                       ),
