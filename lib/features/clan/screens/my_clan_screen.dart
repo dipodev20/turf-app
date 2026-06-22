@@ -22,6 +22,7 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
   late TabController _tabController;
   final _msgController = TextEditingController();
   final _scrollController = ScrollController();
+  ClanMessageModel? _replyingTo;
 
   @override
   void initState() {
