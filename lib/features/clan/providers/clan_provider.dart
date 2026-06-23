@@ -72,8 +72,6 @@ final clanMessagesProvider = StreamProvider.family<List<ClanMessageModel>, Strin
   }
 });
 
-  yield* controller.stream;
-});
 
 // Join requests
 final joinRequestsProvider = FutureProvider.family<List<JoinRequestModel>, String>((ref, clanId) async {
