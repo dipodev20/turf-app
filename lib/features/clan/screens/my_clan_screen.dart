@@ -190,7 +190,7 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
                     controller: _scrollController,
                     padding: const EdgeInsets.all(16),
                     itemCount: messages.length,
-                    itemBuilder: (context, i) {
+                    itemBuilder: (listContext, i) {
                       final msg = messages[i];
                       final isMe = msg.userId == currentUserId;
                       return _buildMessage(msg, isMe);
@@ -200,6 +200,35 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
             error: (e, _) => Center(child: Text('Error: $e')),
           ),
         ),
+        // Reply banner
+        if (_replyingTo != null)
+          Container(
+            color: AppTheme.bg,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                Container(width: 3, height: 36, color: AppTheme.accent,
+                    margin: const EdgeInsets.only(right: 10)),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Replying to \${_replyingTo!.username}',
+                          style: GoogleFonts.inter(fontSize: 11,
+                              fontWeight: FontWeight.w700, color: AppTheme.accent)),
+                      Text(_replyingTo!.content, maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(fontSize: 12, color: AppTheme.t3)),
+                    ],
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => setState(() => _replyingTo = null),
+                  child: const Icon(Icons.close_rounded, size: 18, color: AppTheme.t3),
+                ),
+              ],
+            ),
+          ),
         // Message input
         Container(
           color: AppTheme.white,
@@ -274,7 +303,7 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
               title: Text('Reply', style: GoogleFonts.inter(fontWeight: FontWeight.w500, color: AppTheme.accent)),
               onTap: () {
                 Navigator.pop(context);
-                setState(() => _replyingTo = msg);
+                if (mounted) setState(() => _replyingTo = msg);
               },
             ),
             ListTile(
