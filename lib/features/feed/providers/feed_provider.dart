@@ -101,6 +101,17 @@ class FeedNotifier extends AsyncNotifier<List<PostModel>> {
           'user_id': userId,
         });
       }
+      // Reload post to get updated like_count from DB trigger
+      final updated = await supabase.from('posts').select()
+          .eq('id', post.id).single();
+      final newLikeCount = updated['like_count'] as int? ?? 0;
+      final latestState = state.value ?? [];
+      final idx = latestState.indexWhere((p) => p.id == post.id);
+      if (idx != -1) {
+        final updatedList = [...latestState];
+        updatedList[idx] = latestState[idx].copyWith(likeCount: newLikeCount);
+        state = AsyncData(updatedList);
+      }
     } catch (e) {
       // Rollback on error
       state = AsyncData(currentState);

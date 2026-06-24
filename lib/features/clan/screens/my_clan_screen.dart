@@ -213,7 +213,7 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Replying to \${_replyingTo!.username}',
+                      Text('Replying to ${_replyingTo!.username}',
                           style: GoogleFonts.inter(fontSize: 11,
                               fontWeight: FontWeight.w700, color: AppTheme.accent)),
                       Text(_replyingTo!.content, maxLines: 1,
@@ -262,7 +262,7 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
                   setState(() => _replyingTo = null);
                   _msgController.clear();
                   final fullText = reply != null
-                      ? '↩ \${reply.username}: \${reply.content}\n\$text'
+                      ? '↩ ${reply.username}: ${reply.content}\n$text'
                       : text;
                   ref.read(clanNotifierProvider.notifier).sendMessage(widget.clan.id, fullText);
                 },
