@@ -146,7 +146,60 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
     );
   }
 
-  Widget _buildTabBar() {
+  Widget _buildMessageContent(ClanMessageModel msg, bool isMe) {
+    // Check if this is a reply message (format: ↩ username|quoted|text)
+    if (msg.content.startsWith('↩ ') && msg.content.contains('|')) {
+      final parts = msg.content.split('|');
+      if (parts.length >= 3) {
+        final replyHeader = parts[0].replaceFirst('↩ ', '');
+        final quotedText = parts[1];
+        final actualText = parts.sublist(2).join('|');
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              margin: const EdgeInsets.only(bottom: 6),
+              decoration: BoxDecoration(
+                color: isMe
+                    ? Colors.white.withOpacity(0.15)
+                    : AppTheme.accent.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border(
+                  left: BorderSide(
+                    color: isMe ? Colors.white : AppTheme.accent,
+                    width: 3,
+                  ),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(replyHeader,
+                      style: GoogleFonts.inter(
+                          fontSize: 11, fontWeight: FontWeight.w700,
+                          color: isMe ? Colors.white : AppTheme.accent)),
+                  Text(quotedText,
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: isMe ? Colors.white.withOpacity(0.8) : AppTheme.t3)),
+                ],
+              ),
+            ),
+            Text(actualText,
+                style: GoogleFonts.inter(
+                    fontSize: 14, color: isMe ? Colors.white : AppTheme.t1)),
+          ],
+        );
+      }
+    }
+    return Text(msg.content,
+        style: GoogleFonts.inter(
+            fontSize: 14, color: isMe ? Colors.white : AppTheme.t1));
+  }
+
+    Widget _buildTabBar() {
     return Container(
       color: AppTheme.white,
       child: TabBar(

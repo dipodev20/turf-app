@@ -51,25 +51,18 @@ final clanMembersProvider = FutureProvider.family<List<ClanMemberModel>, String>
 });
 
 // Clan messages (realtime)
-final clanMessagesProvider = StreamProvider.family<List<ClanMessageModel>, String>((ref, clanId) async* {
+final clanMessagesProvider = StreamProvider.family<List<ClanMessageModel>, String>((ref, clanId) {
   final supabase = ref.watch(supabaseProvider);
-
-  Future<List<ClanMessageModel>> fetchMessages() async {
-    final data = await supabase
-        .from('clan_messages')
-        .select()
-        .eq('clan_id', clanId)
-        .order('created_at', ascending: true);
-    return data.map((e) => ClanMessageModel.fromJson(e)).toList();
-  }
-
-  // Initial load
-  yield await fetchMessages();
-
-  // Poll every 2 seconds for new messages
-  await for (final _ in Stream.periodic(const Duration(seconds: 2))) {
-    yield await fetchMessages();
-  }
+  return supabase
+      .from('clan_messages')
+      .stream(primaryKey: ['id'])
+      .eq('clan_id', clanId)
+      .order('created_at', ascending: true)
+      .map((data) {
+        final msgs = data.map((e) => ClanMessageModel.fromJson(e)).toList();
+        msgs.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        return msgs;
+      });
 });
 
 
