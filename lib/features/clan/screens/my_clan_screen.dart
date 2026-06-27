@@ -45,7 +45,7 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
 
     // ── БАГ 7: Чёрный экран кикнутого ──────────────────────────────────────
     // Если clan_id стал null (кикнули) — редиректим на /clan
-    ref.listen(currentUserProvider, (prev, next) {
+    ref.listen(authNotifierProvider, (prev, next) {
       final user = next.value;
       if (user != null && user.clanId == null) {
         if (mounted) context.go('/clan');
