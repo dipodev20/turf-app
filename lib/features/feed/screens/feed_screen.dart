@@ -11,6 +11,7 @@ import 'package:turf_app/core/theme/app_theme.dart';
 import 'package:turf_app/features/feed/models/post_model.dart';
 import 'package:turf_app/features/feed/providers/feed_provider.dart';
 import 'package:turf_app/features/feed/screens/create_post_screen.dart';
+import 'package:turf_app/features/profile/screens/user_profile_screen.dart';
 
 class FeedScreen extends ConsumerStatefulWidget {
   const FeedScreen({super.key});
@@ -531,17 +532,20 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                CircleAvatar(
-                                  radius: 16,
-                                  backgroundColor: AppTheme.accent.withOpacity(0.12),
-                                  backgroundImage: c.avatarUrl != null && c.avatarUrl!.isNotEmpty
-                                      ? CachedNetworkImageProvider(c.avatarUrl!) : null,
-                                  child: c.avatarUrl == null || c.avatarUrl!.isEmpty
-                                      ? Text(
-                                          c.username.isNotEmpty ? c.username[0].toUpperCase() : '?',
-                                          style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.accent),
-                                        )
-                                      : null,
+                                GestureDetector(
+                                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => UserProfileScreen(userId: c.userId))),
+                                  child: CircleAvatar(
+                                    radius: 16,
+                                    backgroundColor: AppTheme.accent.withOpacity(0.12),
+                                    backgroundImage: c.avatarUrl != null && c.avatarUrl!.isNotEmpty
+                                        ? CachedNetworkImageProvider(c.avatarUrl!) : null,
+                                    child: c.avatarUrl == null || c.avatarUrl!.isEmpty
+                                        ? Text(
+                                            c.username.isNotEmpty ? c.username[0].toUpperCase() : '?',
+                                            style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.accent),
+                                          )
+                                        : null,
+                                  ),
                                 ),
                                 const SizedBox(width: 10),
                                 Expanded(

@@ -19,6 +19,7 @@ class UserModel {
   final bool isOnline;
   final bool shareLocation;
   final DateTime createdAt;
+  final DateTime? lastSeenAt;
 
   const UserModel({
     required this.id,
@@ -41,6 +42,7 @@ class UserModel {
     this.isOnline = false,
     this.shareLocation = true,
     required this.createdAt,
+    this.lastSeenAt,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -65,6 +67,9 @@ class UserModel {
       isOnline: json['is_online'] ?? false,
       shareLocation: json['share_location'] ?? true,
       createdAt: DateTime.parse(json['created_at']),
+      lastSeenAt: json['last_seen_at'] != null
+          ? DateTime.parse(json['last_seen_at'])
+          : null,
     );
   }
 
@@ -89,6 +94,7 @@ class UserModel {
     'is_online': isOnline,
     'share_location': shareLocation,
     'created_at': createdAt.toIso8601String(),
+    'last_seen_at': lastSeenAt?.toIso8601String(),
   };
 
   UserModel copyWith({
@@ -109,6 +115,7 @@ class UserModel {
     int? coins,
     bool? isOnline,
     bool? shareLocation,
+    DateTime? lastSeenAt,
   }) {
     return UserModel(
       id: id,
@@ -131,6 +138,20 @@ class UserModel {
       isOnline: isOnline ?? this.isOnline,
       shareLocation: shareLocation ?? this.shareLocation,
       createdAt: createdAt,
+      lastSeenAt: lastSeenAt ?? this.lastSeenAt,
     );
+  }
+
+  // Форматировать "was online" время
+  String get lastSeenText {
+    if (isOnline) return 'Online';
+    final seen = lastSeenAt;
+    if (seen == null) return 'Offline';
+    final diff = DateTime.now().difference(seen);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return 'Long ago';
   }
 }

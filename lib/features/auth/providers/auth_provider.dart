@@ -8,21 +8,35 @@ final supabaseProvider = Provider<SupabaseClient>((ref) {
 });
 
 final authStateProvider = StreamProvider<User?>((ref) {
-  return Supabase.instance.client.auth.onAuthStateChange.map((e) => e.session?.user);
+  return Supabase.instance.client.auth.onAuthStateChange
+      .map((e) => e.session?.user);
 });
 
 final currentUserProvider = FutureProvider<UserModel?>((ref) async {
   final supabase = ref.watch(supabaseProvider);
   final user = supabase.auth.currentUser;
   if (user == null) return null;
-
   final data = await supabase
       .from('users')
       .select()
       .eq('id', user.id)
       .single();
-
   return UserModel.fromJson(data);
+});
+
+// Провайдер для просмотра чужого профиля
+final userProfileProvider = FutureProvider.family<UserModel?, String>((ref, userId) async {
+  final supabase = ref.watch(supabaseProvider);
+  try {
+    final data = await supabase
+        .from('users')
+        .select()
+        .eq('id', userId)
+        .single();
+    return UserModel.fromJson(data);
+  } catch (_) {
+    return null;
+  }
 });
 
 class AuthNotifier extends AsyncNotifier<UserModel?> {
@@ -32,9 +46,9 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
     final user = supabase.auth.currentUser;
     if (user == null) return null;
 
-    // Listen for realtime changes to this user's data
+    // Realtime подписка на изменения юзера
     final channel = supabase
-        .channel('user_changes_\${user.id}')
+        .channel('user_changes_${user.id}')
         .onPostgresChanges(
           event: PostgresChangeEvent.update,
           schema: 'public',
@@ -50,8 +64,8 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
         )
         .subscribe();
 
-    // Also poll every 5 seconds to catch missed realtime events
-    final timer = Timer.periodic(const Duration(seconds: 5), (_) {
+    // Polling каждые 30 сек (был 5 — слишком часто)
+    final timer = Timer.periodic(const Duration(seconds: 30), (_) {
       ref.invalidateSelf();
     });
 
@@ -60,6 +74,12 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
       timer.cancel();
     });
 
+    // Установить online при старте
+    await supabase.from('users').update({
+      'is_online': true,
+      'last_seen_at': DateTime.now().toIso8601String(),
+    }).eq('id', user.id);
+
     final data = await supabase
         .from('users')
         .select()
@@ -67,6 +87,17 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
         .single();
 
     return UserModel.fromJson(data);
+  }
+
+  // Вызывать при уходе приложения в фон / закрытии
+  Future<void> setOffline() async {
+    final supabase = ref.read(supabaseProvider);
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return;
+    await supabase.from('users').update({
+      'is_online': false,
+      'last_seen_at': DateTime.now().toIso8601String(),
+    }).eq('id', userId);
   }
 
   Future<void> signUp({
@@ -81,7 +112,6 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
         email: email,
         password: password,
       );
-
       if (response.user != null) {
         await supabase.from('users').insert({
           'id': response.user!.id,
@@ -96,15 +126,13 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
           'max_streak': 0,
           'share_location': true,
           'is_online': true,
-          'created_at': DateTime.now().toIso8601String(),
+          'last_seen_at': DateTime.now().toIso8601String(),
         });
-
         final data = await supabase
             .from('users')
             .select()
             .eq('id', response.user!.id)
             .single();
-
         state = AsyncData(UserModel.fromJson(data));
         ref.invalidate(currentUserProvider);
       }
@@ -124,20 +152,17 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
         email: email,
         password: password,
       );
-
       if (response.user != null) {
-        // Set online
-        await supabase
-            .from('users')
-            .update({'is_online': true})
-            .eq('id', response.user!.id);
+        await supabase.from('users').update({
+          'is_online': true,
+          'last_seen_at': DateTime.now().toIso8601String(),
+        }).eq('id', response.user!.id);
 
         final data = await supabase
             .from('users')
             .select()
             .eq('id', response.user!.id)
             .single();
-
         state = AsyncData(UserModel.fromJson(data));
         ref.invalidate(currentUserProvider);
       }
@@ -149,14 +174,12 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
   Future<void> signOut() async {
     final supabase = ref.read(supabaseProvider);
     final userId = supabase.auth.currentUser?.id;
-
     if (userId != null) {
-      await supabase
-          .from('users')
-          .update({'is_online': false})
-          .eq('id', userId);
+      await supabase.from('users').update({
+        'is_online': false,
+        'last_seen_at': DateTime.now().toIso8601String(),
+      }).eq('id', userId);
     }
-
     await supabase.auth.signOut();
     state = const AsyncData(null);
   }
@@ -171,24 +194,20 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
     final supabase = ref.read(supabaseProvider);
     final userId = supabase.auth.currentUser?.id;
     if (userId == null) return;
-
     final updates = <String, dynamic>{};
     if (username != null) updates['username'] = username;
     if (bio != null) updates['bio'] = bio;
     if (city != null) updates['city'] = city;
     if (avatarUrl != null) updates['avatar_url'] = avatarUrl;
     if (coverUrl != null) updates['cover_url'] = coverUrl;
-
     await supabase.from('users').update(updates).eq('id', userId);
-
     final data = await supabase
         .from('users')
         .select()
         .eq('id', userId)
         .single();
-
     state = AsyncData(UserModel.fromJson(data));
-        ref.invalidate(currentUserProvider);
+    ref.invalidate(currentUserProvider);
   }
 }
 

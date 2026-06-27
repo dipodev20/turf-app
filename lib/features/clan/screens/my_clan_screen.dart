@@ -8,6 +8,7 @@ import 'package:turf_app/core/theme/app_theme.dart';
 import 'package:turf_app/features/clan/models/clan_model.dart';
 import 'package:turf_app/features/clan/providers/clan_provider.dart';
 import 'package:turf_app/features/auth/providers/auth_provider.dart';
+import 'package:turf_app/features/profile/screens/user_profile_screen.dart';
 
 class MyClanScreen extends ConsumerStatefulWidget {
   final ClanModel clan;
@@ -492,23 +493,27 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
               isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
           children: [
             if (!isMe) ...[
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: AppTheme.accent.withValues(alpha: 0.15),
-                backgroundImage: msg.avatarUrl != null
-                    ? CachedNetworkImageProvider(msg.avatarUrl!)
-                    : null,
-                child: msg.avatarUrl == null
-                    ? Text(
-                        msg.username.isNotEmpty
-                            ? msg.username[0].toUpperCase()
-                            : '?',
-                        style: GoogleFonts.inter(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.accent),
-                      )
-                    : null,
+              GestureDetector(
+                onTap: () => Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => UserProfileScreen(userId: msg.userId))),
+                child: CircleAvatar(
+                  radius: 16,
+                  backgroundColor: AppTheme.accent.withValues(alpha: 0.15),
+                  backgroundImage: msg.avatarUrl != null
+                      ? CachedNetworkImageProvider(msg.avatarUrl!)
+                      : null,
+                  child: msg.avatarUrl == null
+                      ? Text(
+                          msg.username.isNotEmpty
+                              ? msg.username[0].toUpperCase()
+                              : '?',
+                          style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.accent),
+                        )
+                      : null,
+                ),
               ),
               const SizedBox(width: 8),
             ],
