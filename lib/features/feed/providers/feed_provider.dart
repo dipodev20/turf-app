@@ -2,41 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:turf_app/features/auth/providers/auth_provider.dart';
 import 'package:turf_app/features/feed/models/post_model.dart';
 import 'package:uuid/uuid.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
 
-final feedProvider = FutureProvider.family<List<PostModel>, String>((ref, filter) async {
-  final supabase = ref.watch(supabaseProvider);
-  final userId = supabase.auth.currentUser?.id;
-
-  var query = supabase.from('posts').select();
-
-  if (filter == 'Wars') {
-    query = query.eq('type', 'war');
-  } else if (filter == 'Captures') {
-    query = query.eq('type', 'capture');
-  } else if (filter == 'Achievements') {
-    query = query.eq('type', 'achievement');
-  }
-
-  final data = await query.order('created_at', ascending: false).limit(30);
-
-  // Check likes
-  List<String> likedIds = [];
-  if (userId != null) {
-    final likes = await supabase
-        .from('post_likes')
-        .select('post_id')
-        .eq('user_id', userId);
-    likedIds = likes.map<String>((e) => e['post_id'] as String).toList();
-  }
-
-  return data.map((e) => PostModel.fromJson({
-    ...e,
-    'is_liked': likedIds.contains(e['id']),
-  })).toList();
-});
-
+// ── COMMENTS ──────────────────────────────────────────────────────────────────
 final commentsProvider = FutureProvider.family<List<CommentModel>, String>((ref, postId) async {
   final supabase = ref.watch(supabaseProvider);
   final data = await supabase
@@ -47,15 +15,30 @@ final commentsProvider = FutureProvider.family<List<CommentModel>, String>((ref,
   return data.map((e) => CommentModel.fromJson(e)).toList();
 });
 
+// ── FEED NOTIFIER (единственный источник правды) ───────────────────────────────
 class FeedNotifier extends AsyncNotifier<List<PostModel>> {
+  String _filter = 'All';
+
   @override
   Future<List<PostModel>> build() async {
+    return _fetchPosts(_filter);
+  }
+
+  Future<List<PostModel>> _fetchPosts(String filter) async {
     final supabase = ref.read(supabaseProvider);
     final userId = supabase.auth.currentUser?.id;
 
-    final data = await supabase
-        .from('posts')
-        .select()
+    var query = supabase.from('posts').select();
+
+    if (filter == 'Wars') {
+      query = query.eq('type', 'war');
+    } else if (filter == 'Captures') {
+      query = query.eq('type', 'capture');
+    } else if (filter == 'Achievements') {
+      query = query.eq('type', 'achievement');
+    }
+
+    final data = await query
         .order('created_at', ascending: false)
         .limit(50);
 
@@ -71,6 +54,17 @@ class FeedNotifier extends AsyncNotifier<List<PostModel>> {
     return posts.map((p) => p.copyWith(isLiked: likedIds.contains(p.id))).toList();
   }
 
+  Future<void> setFilter(String filter) async {
+    _filter = filter;
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() => _fetchPosts(filter));
+  }
+
+  Future<void> refresh() async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() => _fetchPosts(_filter));
+  }
+
   Future<void> toggleLike(PostModel post) async {
     final supabase = ref.read(supabaseProvider);
     final userId = supabase.auth.currentUser?.id;
@@ -80,16 +74,14 @@ class FeedNotifier extends AsyncNotifier<List<PostModel>> {
     final index = currentState.indexWhere((p) => p.id == post.id);
     if (index == -1) return;
 
-    // Optimistic update FIRST - instant UI response
-    final updated = [...currentState];
-    if (post.isLiked) {
-      updated[index] = post.copyWith(isLiked: false, likeCount: post.likeCount - 1);
-    } else {
-      updated[index] = post.copyWith(isLiked: true, likeCount: post.likeCount + 1);
-    }
-    state = AsyncData(updated);
+    // Optimistic update
+    final optimistic = [...currentState];
+    optimistic[index] = post.copyWith(
+      isLiked: !post.isLiked,
+      likeCount: post.isLiked ? post.likeCount - 1 : post.likeCount + 1,
+    );
+    state = AsyncData(optimistic);
 
-    // Then update DB (trigger handles like_count)
     try {
       if (post.isLiked) {
         await supabase.from('post_likes').delete()
@@ -101,19 +93,23 @@ class FeedNotifier extends AsyncNotifier<List<PostModel>> {
           'user_id': userId,
         });
       }
-      // Reload post to get updated like_count from DB trigger
-      final updated = await supabase.from('posts').select()
-          .eq('id', post.id).single();
-      final newLikeCount = updated['like_count'] as int? ?? 0;
-      final latestState = state.value ?? [];
-      final idx = latestState.indexWhere((p) => p.id == post.id);
+      // Получить актуальный like_count из БД (триггер уже отработал)
+      final fresh = await supabase
+          .from('posts')
+          .select('like_count')
+          .eq('id', post.id)
+          .single();
+      final newCount = fresh['like_count'] as int? ?? 0;
+
+      final latest = state.value ?? [];
+      final idx = latest.indexWhere((p) => p.id == post.id);
       if (idx != -1) {
-        final updatedList = [...latestState];
-        updatedList[idx] = latestState[idx].copyWith(likeCount: newLikeCount);
-        state = AsyncData(updatedList);
+        final updated = [...latest];
+        updated[idx] = latest[idx].copyWith(likeCount: newCount);
+        state = AsyncData(updated);
       }
     } catch (e) {
-      // Rollback on error
+      // Rollback
       state = AsyncData(currentState);
     }
   }
@@ -138,7 +134,11 @@ class FeedNotifier extends AsyncNotifier<List<PostModel>> {
       imageUrl = supabase.storage.from('media').getPublicUrl(fileName);
     }
 
-    final clanData = await supabase.from('clans').select('name, flag_url').eq('id', userData!.clanId!).single();
+    final clanData = await supabase
+        .from('clans')
+        .select('name, flag_url')
+        .eq('id', userData!.clanId!)
+        .single();
 
     await supabase.from('posts').insert({
       'id': const Uuid().v4(),
@@ -156,7 +156,7 @@ class FeedNotifier extends AsyncNotifier<List<PostModel>> {
       'created_at': DateTime.now().toIso8601String(),
     });
 
-    // state already updated optimistically
+    await refresh();
   }
 
   Future<void> addComment(String postId, String content) async {
@@ -176,20 +176,19 @@ class FeedNotifier extends AsyncNotifier<List<PostModel>> {
       'created_at': DateTime.now().toIso8601String(),
     });
 
-    // Increment comment count
-    final currentState = state.value ?? [];
-    final index = currentState.indexWhere((p) => p.id == postId);
-    if (index != -1) {
-      final updated = [...currentState];
-      final post = updated[index];
-      updated[index] = PostModel(
-        id: post.id, clanId: post.clanId, clanName: post.clanName,
-        clanFlagUrl: post.clanFlagUrl, authorId: post.authorId, authorName: post.authorName,
-        type: post.type, content: post.content, imageUrl: post.imageUrl,
-        metadata: post.metadata, likeCount: post.likeCount,
-        commentCount: post.commentCount + 1, isLiked: post.isLiked,
-        city: post.city, createdAt: post.createdAt,
-      );
+    // Получить актуальный comment_count из БД (триггер)
+    final fresh = await supabase
+        .from('posts')
+        .select('comment_count')
+        .eq('id', postId)
+        .single();
+    final newCount = fresh['comment_count'] as int? ?? 0;
+
+    final current = state.value ?? [];
+    final idx = current.indexWhere((p) => p.id == postId);
+    if (idx != -1) {
+      final updated = [...current];
+      updated[idx] = current[idx].copyWith(commentCount: newCount);
       state = AsyncData(updated);
     }
 
@@ -200,7 +199,11 @@ class FeedNotifier extends AsyncNotifier<List<PostModel>> {
     final supabase = ref.read(supabaseProvider);
     final userId = supabase.auth.currentUser?.id;
     if (userId == null) return;
-    await supabase.from('posts').delete().eq('id', postId).eq('author_id', userId);
+
+    await supabase.from('posts').delete()
+        .eq('id', postId)
+        .eq('author_id', userId);
+
     final current = state.value ?? [];
     state = AsyncData(current.where((p) => p.id != postId).toList());
   }
@@ -209,10 +212,32 @@ class FeedNotifier extends AsyncNotifier<List<PostModel>> {
     final supabase = ref.read(supabaseProvider);
     final userId = supabase.auth.currentUser?.id;
     if (userId == null) return;
-    await supabase.from('comments').delete().eq('id', commentId).eq('user_id', userId);
+
+    await supabase.from('comments').delete()
+        .eq('id', commentId)
+        .eq('user_id', userId);
+
+    // Получить актуальный comment_count из БД (триггер)
+    final fresh = await supabase
+        .from('posts')
+        .select('comment_count')
+        .eq('id', postId)
+        .single();
+    final newCount = fresh['comment_count'] as int? ?? 0;
+
+    final current = state.value ?? [];
+    final idx = current.indexWhere((p) => p.id == postId);
+    if (idx != -1) {
+      final updated = [...current];
+      updated[idx] = current[idx].copyWith(commentCount: newCount);
+      state = AsyncData(updated);
+    }
+
     ref.invalidate(commentsProvider(postId));
   }
 }
 
-final feedNotifierProvider = AsyncNotifierProvider<FeedNotifier, List<PostModel>>(FeedNotifier.new);
+final feedNotifierProvider =
+    AsyncNotifierProvider<FeedNotifier, List<PostModel>>(FeedNotifier.new);
 
+// feedProvider удалён — используй feedNotifierProvider везде

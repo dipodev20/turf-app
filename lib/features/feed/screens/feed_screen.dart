@@ -25,13 +25,13 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final postsAsync = ref.watch(feedProvider(_filter));
+    // Единственный источник — feedNotifierProvider
+    final postsAsync = ref.watch(feedNotifierProvider);
 
     return Scaffold(
       backgroundColor: AppTheme.bg,
       body: CustomScrollView(
         slivers: [
-          // Header
           SliverToBoxAdapter(
             child: Container(
               color: AppTheme.white,
@@ -47,20 +47,19 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                         Text('Feed', style: GoogleFonts.inter(fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: -0.6)),
                         const Spacer(),
                         GestureDetector(
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen())),
-                  child: Container(
-                    width: 36, height: 36,
-                    decoration: BoxDecoration(color: AppTheme.bg, shape: BoxShape.circle),
-                    child: const Icon(Icons.notifications_outlined, size: 18, color: AppTheme.t1),
-                  ),
-                ),
+                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+                          child: Container(
+                            width: 36, height: 36,
+                            decoration: BoxDecoration(color: AppTheme.bg, shape: BoxShape.circle),
+                            child: const Icon(Icons.notifications_outlined, size: 18, color: AppTheme.t1),
+                          ),
+                        ),
                         const SizedBox(width: 8),
                         _headerBtn(Icons.send_outlined),
                       ],
                     ),
                   ),
                   const SizedBox(height: 14),
-                  // Filter tabs
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -70,7 +69,11 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                         return Padding(
                           padding: const EdgeInsets.only(right: 8),
                           child: GestureDetector(
-                            onTap: () => setState(() => _filter = f),
+                            onTap: () {
+                              if (_filter == f) return;
+                              setState(() => _filter = f);
+                              ref.read(feedNotifierProvider.notifier).setFilter(f);
+                            },
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                               decoration: BoxDecoration(
@@ -94,7 +97,6 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
             ),
           ),
 
-          // Posts
           postsAsync.when(
             data: (posts) => posts.isEmpty
                 ? SliverFillRemaining(
@@ -146,7 +148,6 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Post header
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
             child: Row(
@@ -189,7 +190,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                     ],
                   ),
                 ),
-GestureDetector(
+                GestureDetector(
                   onTap: () => showModalBottomSheet(
                     context: context,
                     backgroundColor: Colors.transparent,
@@ -205,14 +206,14 @@ GestureDetector(
                           Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 12),
                             decoration: BoxDecoration(color: AppTheme.t4, borderRadius: BorderRadius.circular(2))),
                           if (post.authorId == Supabase.instance.client.auth.currentUser?.id)
-                          ListTile(
-                            leading: const Icon(Icons.delete_outline_rounded, color: AppTheme.red),
-                            title: Text('Delete Post', style: GoogleFonts.inter(fontWeight: FontWeight.w500, color: AppTheme.red)),
-                            onTap: () {
-                              Navigator.pop(context);
-                              ref.read(feedNotifierProvider.notifier).deletePost(post.id);
-                            },
-                          ),
+                            ListTile(
+                              leading: const Icon(Icons.delete_outline_rounded, color: AppTheme.red),
+                              title: Text('Delete Post', style: GoogleFonts.inter(fontWeight: FontWeight.w500, color: AppTheme.red)),
+                              onTap: () {
+                                Navigator.pop(context);
+                                ref.read(feedNotifierProvider.notifier).deletePost(post.id);
+                              },
+                            ),
                         ],
                       ),
                     ),
@@ -224,14 +225,12 @@ GestureDetector(
           ),
           const SizedBox(height: 10),
 
-          // Content by type
           if (post.type == 'war') _buildWarBanner(post),
           if (post.type == 'capture') _buildCaptureBanner(post),
           if (post.type == 'achievement') _buildAchievementBanner(post),
           if (post.imageUrl != null && post.imageUrl!.isNotEmpty)
             CachedNetworkImage(imageUrl: post.imageUrl!, fit: BoxFit.cover),
 
-          // Actions
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
             child: Row(
@@ -243,16 +242,29 @@ GestureDetector(
                   onTap: () => ref.read(feedNotifierProvider.notifier).toggleLike(post),
                 ),
                 const SizedBox(width: 16),
-                _actionBtn(icon: Icons.chat_bubble_outline_rounded, label: '${post.commentCount}', onTap: () => _showComments(post)),
+                _actionBtn(
+                  icon: Icons.chat_bubble_outline_rounded,
+                  label: '${post.commentCount}',
+                  onTap: () => _showComments(post),
+                ),
                 const SizedBox(width: 16),
-                _actionBtn(icon: Icons.share_outlined, label: '', onTap: () => Share.share('Check out this post from ${post.clanName} on TURF! 🗺️')),
+                _actionBtn(
+                  icon: Icons.share_outlined,
+                  label: '',
+                  onTap: () => Share.share('Check out this post from ${post.clanName} on TURF! 🗺️'),
+                ),
                 const Spacer(),
-                _actionBtn(icon: Icons.bookmark_border_rounded, label: '', onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Post saved!'), behavior: SnackBarBehavior.floating))),
+                _actionBtn(
+                  icon: Icons.bookmark_border_rounded,
+                  label: '',
+                  onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Post saved!'), behavior: SnackBarBehavior.floating),
+                  ),
+                ),
               ],
             ),
           ),
 
-          // Caption
           if (post.content != null && post.content!.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
@@ -331,8 +343,7 @@ GestureDetector(
   Widget _buildCaptureBanner(PostModel post) {
     final meta = post.metadata ?? {};
     return Container(
-      height: 180,
-      width: double.infinity,
+      height: 180, width: double.infinity,
       color: const Color(0xFFF0EDE8),
       child: Stack(
         children: [
@@ -440,7 +451,7 @@ GestureDetector(
   }
 }
 
-// Comments bottom sheet
+// ── COMMENTS SHEET ────────────────────────────────────────────────────────────
 class _CommentsSheet extends ConsumerStatefulWidget {
   final PostModel post;
   const _CommentsSheet({required this.post});
@@ -492,10 +503,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                                   Container(
                                     width: 36, height: 4,
                                     margin: const EdgeInsets.only(bottom: 12),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.t4,
-                                      borderRadius: BorderRadius.circular(2),
-                                    ),
+                                    decoration: BoxDecoration(color: AppTheme.t4, borderRadius: BorderRadius.circular(2)),
                                   ),
                                   ListTile(
                                     leading: const Icon(Icons.copy_outlined),
@@ -506,14 +514,14 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                                     },
                                   ),
                                   if (c.userId == Supabase.instance.client.auth.currentUser?.id)
-                                  ListTile(
-                                    leading: const Icon(Icons.delete_outline_rounded, color: AppTheme.red),
-                                    title: Text('Delete', style: GoogleFonts.inter(fontWeight: FontWeight.w500, color: AppTheme.red)),
-                                    onTap: () {
-                                      Navigator.pop(context);
-                                      ref.read(feedNotifierProvider.notifier).deleteComment(c.id, widget.post.id);
-                                    },
-                                  ),
+                                    ListTile(
+                                      leading: const Icon(Icons.delete_outline_rounded, color: AppTheme.red),
+                                      title: Text('Delete', style: GoogleFonts.inter(fontWeight: FontWeight.w500, color: AppTheme.red)),
+                                      onTap: () {
+                                        Navigator.pop(context);
+                                        ref.read(feedNotifierProvider.notifier).deleteComment(c.id, widget.post.id);
+                                      },
+                                    ),
                                 ],
                               ),
                             ),
