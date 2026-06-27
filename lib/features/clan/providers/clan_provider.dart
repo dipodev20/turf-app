@@ -1,11 +1,9 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:turf_app/features/auth/providers/auth_provider.dart';
 import 'package:turf_app/features/clan/models/clan_model.dart';
 import 'package:uuid/uuid.dart';
 
-// All clans list
 final clansProvider = FutureProvider<List<ClanModel>>((ref) async {
   final supabase = ref.watch(supabaseProvider);
   final data = await supabase
@@ -15,11 +13,9 @@ final clansProvider = FutureProvider<List<ClanModel>>((ref) async {
   return data.map((e) => ClanModel.fromJson(e)).toList();
 });
 
-// Current user clan
 final myClanProvider = FutureProvider<ClanModel?>((ref) async {
   final user = ref.watch(currentUserProvider).value;
   if (user?.clanId == null) return null;
-
   final supabase = ref.watch(supabaseProvider);
   final data = await supabase
       .from('clans')
@@ -29,7 +25,6 @@ final myClanProvider = FutureProvider<ClanModel?>((ref) async {
   return ClanModel.fromJson(data);
 });
 
-// Clan members
 final clanMembersProvider = FutureProvider.family<List<ClanMemberModel>, String>((ref, clanId) async {
   final supabase = ref.watch(supabaseProvider);
   final data = await supabase
@@ -50,7 +45,7 @@ final clanMembersProvider = FutureProvider.family<List<ClanMemberModel>, String>
   }).toList();
 });
 
-// Clan messages (realtime)
+// ── CHAT: StreamProvider с правильной сортировкой ──────────────────────────
 final clanMessagesProvider = StreamProvider.family<List<ClanMessageModel>, String>((ref, clanId) {
   final supabase = ref.watch(supabaseProvider);
   return supabase
@@ -60,13 +55,12 @@ final clanMessagesProvider = StreamProvider.family<List<ClanMessageModel>, Strin
       .order('created_at', ascending: true)
       .map((data) {
         final msgs = data.map((e) => ClanMessageModel.fromJson(e)).toList();
+        // Сортировка только по одному критерию — серверный timestamp
         msgs.sort((a, b) => a.createdAt.compareTo(b.createdAt));
         return msgs;
       });
 });
 
-
-// Join requests
 final joinRequestsProvider = FutureProvider.family<List<JoinRequestModel>, String>((ref, clanId) async {
   final supabase = ref.watch(supabaseProvider);
   final data = await supabase
@@ -117,18 +111,14 @@ class ClanNotifier extends AsyncNotifier<ClanModel?> {
         'rank': 'Street Crew',
         'is_open': isOpen,
         'max_members': 30,
-        'created_at': DateTime.now().toIso8601String(),
       });
 
-      // Add boss as member
       await supabase.from('clan_members').insert({
         'user_id': userId,
         'clan_id': clanId,
         'role': 'boss',
-        'joined_at': DateTime.now().toIso8601String(),
       });
 
-      // Update user's clan
       await supabase.from('users').update({'clan_id': clanId}).eq('id', userId);
 
       final data = await supabase.from('clans').select().eq('id', clanId).single();
@@ -143,39 +133,26 @@ class ClanNotifier extends AsyncNotifier<ClanModel?> {
   Future<void> requestToJoin(String clanId) async {
     final supabase = ref.read(supabaseProvider);
     final userId = supabase.auth.currentUser!.id;
-    final userData = ref.read(currentUserProvider).value;
-
     await supabase.from('join_requests').insert({
       'id': const Uuid().v4(),
       'clan_id': clanId,
       'user_id': userId,
       'status': 'pending',
-      'created_at': DateTime.now().toIso8601String(),
     });
   }
 
   Future<void> acceptRequest(JoinRequestModel request) async {
     final supabase = ref.read(supabaseProvider);
-
-    // Update request status
     await supabase.from('join_requests').update({'status': 'accepted'}).eq('id', request.id);
-
-    // Add member
     await supabase.from('clan_members').insert({
       'user_id': request.userId,
       'clan_id': request.clanId,
       'role': 'prospect',
-      'joined_at': DateTime.now().toIso8601String(),
     });
-
-    // Update user clan
     await supabase.from('users').update({'clan_id': request.clanId}).eq('id', request.userId);
-
-    // Update member count
     await supabase.rpc('increment_member_count', params: {'clan_id': request.clanId});
     ref.invalidate(currentUserProvider);
     ref.invalidate(myClanProvider);
-
     ref.invalidate(clanMembersProvider(request.clanId));
     ref.invalidate(joinRequestsProvider(request.clanId));
   }
@@ -189,7 +166,7 @@ class ClanNotifier extends AsyncNotifier<ClanModel?> {
     final supabase = ref.read(supabaseProvider);
     final userId = supabase.auth.currentUser!.id;
     final userData = ref.read(currentUserProvider).value;
-
+    // БЕЗ created_at — Supabase сам ставит DEFAULT NOW() точнее клиента
     await supabase.from('clan_messages').insert({
       'id': const Uuid().v4(),
       'clan_id': clanId,
@@ -197,8 +174,24 @@ class ClanNotifier extends AsyncNotifier<ClanModel?> {
       'username': userData?.username ?? '',
       'avatar_url': userData?.avatarUrl,
       'content': content,
-      'created_at': DateTime.now().toIso8601String(),
     });
+  }
+
+  Future<void> deleteMessage(String messageId) async {
+    final supabase = ref.read(supabaseProvider);
+    await supabase.from('clan_messages').delete().eq('id', messageId);
+    // StreamProvider обновится автоматически
+  }
+
+  Future<void> kickMember(String userId, String clanId) async {
+    final supabase = ref.read(supabaseProvider);
+    await supabase.from('clan_members').delete()
+        .eq('user_id', userId)
+        .eq('clan_id', clanId);
+    await supabase.from('users').update({'clan_id': null}).eq('id', userId);
+    await supabase.rpc('decrement_member_count', params: {'clan_id': clanId});
+    ref.invalidate(clanMembersProvider(clanId));
+    ref.invalidate(clansProvider);
   }
 
   Future<void> leaveClan() async {
@@ -206,29 +199,17 @@ class ClanNotifier extends AsyncNotifier<ClanModel?> {
     final userId = supabase.auth.currentUser!.id;
     final userData = ref.read(currentUserProvider).value;
     if (userData?.clanId == null) return;
-
     await supabase.from('clan_members').delete()
         .eq('user_id', userId)
         .eq('clan_id', userData!.clanId!);
-
     await supabase.from('users').update({'clan_id': null}).eq('id', userId);
     await supabase.rpc('decrement_member_count', params: {'clan_id': userData.clanId});
-
     state = const AsyncData(null);
     ref.invalidate(myClanProvider);
     ref.invalidate(currentUserProvider);
   }
 
-  Future<void> kickMember(String userId, String clanId) async {
-    final supabase = ref.read(supabaseProvider);
-    await supabase.from('clan_members').delete()
-        .eq('user_id', userId).eq('clan_id', clanId);
-    await supabase.from('users').update({'clan_id': null}).eq('id', userId);
-    await supabase.rpc('decrement_member_count', params: {'clan_id': clanId});
-    ref.invalidate(clanMembersProvider(clanId));
-  }
-
-    Future<void> deleteClan(String clanId) async {
+  Future<void> deleteClan(String clanId) async {
     final supabase = ref.read(supabaseProvider);
     await supabase.from('clan_members').delete().eq('clan_id', clanId);
     await supabase.from('users').update({'clan_id': null}).eq('clan_id', clanId);
@@ -239,12 +220,6 @@ class ClanNotifier extends AsyncNotifier<ClanModel?> {
     ref.invalidate(currentUserProvider);
     ref.invalidate(clansProvider);
   }
-
-  Future<void> deleteMessage(String messageId) async {
-    final supabase = ref.read(supabaseProvider);
-    await supabase.from('clan_messages').delete().eq('id', messageId);
-  }
 }
 
 final clanNotifierProvider = AsyncNotifierProvider<ClanNotifier, ClanModel?>(ClanNotifier.new);
-

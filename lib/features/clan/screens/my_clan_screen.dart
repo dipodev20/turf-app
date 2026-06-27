@@ -43,6 +43,15 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
     final currentUser = ref.watch(currentUserProvider).value;
     final isBoss = currentUser?.id == widget.clan.bossId;
 
+    // ── БАГ 7: Чёрный экран кикнутого ──────────────────────────────────────
+    // Если clan_id стал null (кикнули) — редиректим на /clan
+    ref.listen(currentUserProvider, (prev, next) {
+      final user = next.value;
+      if (user != null && user.clanId == null) {
+        if (mounted) context.go('/clan');
+      }
+    });
+
     return Scaffold(
       backgroundColor: AppTheme.bg,
       body: Column(
@@ -74,7 +83,6 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
       ),
       child: Stack(
         children: [
-          // Purple glow
           Positioned(
             top: -30, right: -30,
             child: Container(
@@ -82,19 +90,18 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
-                  colors: [AppTheme.accent.withOpacity(0.25), Colors.transparent],
+                  colors: [AppTheme.accent.withValues(alpha: 0.25), Colors.transparent],
                 ),
               ),
             ),
           ),
           Row(
             children: [
-              // Flag
               Container(
                 width: 52, height: 52,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(14),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 12)],
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 12)],
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(14),
@@ -129,16 +136,17 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
                 ),
               ),
               GestureDetector(
-                  onTap: () => _showClanSettings(context, ref, isBoss),
-                  child: Container(
-                    width: 36, height: 36,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(Icons.settings_outlined, color: Colors.white.withOpacity(0.5), size: 18),
+                onTap: () => _showClanSettings(context, ref, isBoss),
+                child: Container(
+                  width: 36, height: 36,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
                   ),
+                  child: Icon(Icons.settings_outlined,
+                      color: Colors.white.withValues(alpha: 0.5), size: 18),
                 ),
+              ),
             ],
           ),
         ],
@@ -146,60 +154,7 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
     );
   }
 
-  Widget _buildMessageContent(ClanMessageModel msg, bool isMe) {
-    // Check if this is a reply message (format: ↩ username|quoted|text)
-    if (msg.content.startsWith('↩ ') && msg.content.contains('|')) {
-      final parts = msg.content.split('|');
-      if (parts.length >= 3) {
-        final replyHeader = parts[0].replaceFirst('↩ ', '');
-        final quotedText = parts[1];
-        final actualText = parts.sublist(2).join('|');
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              margin: const EdgeInsets.only(bottom: 6),
-              decoration: BoxDecoration(
-                color: isMe
-                    ? Colors.white.withOpacity(0.15)
-                    : AppTheme.accent.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(8),
-                border: Border(
-                  left: BorderSide(
-                    color: isMe ? Colors.white : AppTheme.accent,
-                    width: 3,
-                  ),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(replyHeader,
-                      style: GoogleFonts.inter(
-                          fontSize: 11, fontWeight: FontWeight.w700,
-                          color: isMe ? Colors.white : AppTheme.accent)),
-                  Text(quotedText,
-                      maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: isMe ? Colors.white.withOpacity(0.8) : AppTheme.t3)),
-                ],
-              ),
-            ),
-            Text(actualText,
-                style: GoogleFonts.inter(
-                    fontSize: 14, color: isMe ? Colors.white : AppTheme.t1)),
-          ],
-        );
-      }
-    }
-    return Text(msg.content,
-        style: GoogleFonts.inter(
-            fontSize: 14, color: isMe ? Colors.white : AppTheme.t1));
-  }
-
-    Widget _buildTabBar() {
+  Widget _buildTabBar() {
     return Container(
       color: AppTheme.white,
       child: TabBar(
@@ -220,6 +175,69 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
     );
   }
 
+  // ── БАГ 5: Reply блок-цитата ──────────────────────────────────────────────
+  Widget _buildMessageContent(ClanMessageModel msg, bool isMe) {
+    // Формат: "↩ username|quoted text|actual text"
+    if (msg.content.startsWith('↩ ') && msg.content.contains('|')) {
+      final firstPipe = msg.content.indexOf('|');
+      final secondPipe = msg.content.indexOf('|', firstPipe + 1);
+      if (firstPipe != -1 && secondPipe != -1) {
+        final replyAuthor = msg.content.substring(2, firstPipe);
+        final quotedText = msg.content.substring(firstPipe + 1, secondPipe);
+        final actualText = msg.content.substring(secondPipe + 1);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Блок-цитата
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(10, 7, 10, 7),
+              margin: const EdgeInsets.only(bottom: 6),
+              decoration: BoxDecoration(
+                color: isMe
+                    ? Colors.white.withValues(alpha: 0.15)
+                    : AppTheme.accent.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border(
+                  left: BorderSide(
+                    color: isMe ? Colors.white : AppTheme.accent,
+                    width: 3,
+                  ),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(replyAuthor,
+                      style: GoogleFonts.inter(
+                          fontSize: 11, fontWeight: FontWeight.w700,
+                          color: isMe ? Colors.white : AppTheme.accent)),
+                  const SizedBox(height: 2),
+                  Text(quotedText,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: isMe
+                              ? Colors.white.withValues(alpha: 0.75)
+                              : AppTheme.t3)),
+                ],
+              ),
+            ),
+            // Основной текст
+            Text(actualText,
+                style: GoogleFonts.inter(
+                    fontSize: 14,
+                    color: isMe ? Colors.white : AppTheme.t1)),
+          ],
+        );
+      }
+    }
+    return Text(msg.content,
+        style: GoogleFonts.inter(
+            fontSize: 14, color: isMe ? Colors.white : AppTheme.t1));
+  }
+
   Widget _buildChat(String currentUserId) {
     final messagesAsync = ref.watch(clanMessagesProvider(widget.clan.id));
 
@@ -227,32 +245,48 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
       children: [
         Expanded(
           child: messagesAsync.when(
-            data: (messages) => messages.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.chat_bubble_outline, size: 48, color: AppTheme.t4),
-                        const SizedBox(height: 12),
-                        Text('No messages yet', style: GoogleFonts.inter(color: AppTheme.t3, fontSize: 15)),
-                        Text('Be first to say something 👋', style: GoogleFonts.inter(color: AppTheme.t4, fontSize: 13)),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.all(16),
-                    itemCount: messages.length,
-                    itemBuilder: (listContext, i) {
-                      final msg = messages[i];
-                      final isMe = msg.userId == currentUserId;
-                      return _buildMessage(msg, isMe);
-                    },
-                  ),
-            loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.accent)),
+            data: (messages) {
+              // Автоскролл вниз при новых сообщениях
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (_scrollController.hasClients) {
+                  _scrollController.animateTo(
+                    _scrollController.position.maxScrollExtent,
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOut,
+                  );
+                }
+              });
+              return messages.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.chat_bubble_outline, size: 48, color: AppTheme.t4),
+                          const SizedBox(height: 12),
+                          Text('No messages yet',
+                              style: GoogleFonts.inter(color: AppTheme.t3, fontSize: 15)),
+                          Text('Be first to say something 👋',
+                              style: GoogleFonts.inter(color: AppTheme.t4, fontSize: 13)),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.all(16),
+                      itemCount: messages.length,
+                      itemBuilder: (_, i) {
+                        final msg = messages[i];
+                        final isMe = msg.userId == currentUserId;
+                        return _buildMessage(msg, isMe);
+                      },
+                    );
+            },
+            loading: () => const Center(
+                child: CircularProgressIndicator(color: AppTheme.accent)),
             error: (e, _) => Center(child: Text('Error: $e')),
           ),
         ),
+
         // Reply banner
         if (_replyingTo != null)
           Container(
@@ -260,7 +294,8 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               children: [
-                Container(width: 3, height: 36, color: AppTheme.accent,
+                Container(
+                    width: 3, height: 36, color: AppTheme.accent,
                     margin: const EdgeInsets.only(right: 10)),
                 Expanded(
                   child: Column(
@@ -269,8 +304,8 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
                       Text('Replying to ${_replyingTo!.username}',
                           style: GoogleFonts.inter(fontSize: 11,
                               fontWeight: FontWeight.w700, color: AppTheme.accent)),
-                      Text(_replyingTo!.content, maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                      Text(_replyingTo!.content,
+                          maxLines: 1, overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.inter(fontSize: 12, color: AppTheme.t3)),
                     ],
                   ),
@@ -282,7 +317,8 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
               ],
             ),
           ),
-        // Message input
+
+        // Input
         Container(
           color: AppTheme.white,
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
@@ -301,7 +337,8 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
                       hintText: 'Message the clan...',
                       hintStyle: GoogleFonts.inter(color: AppTheme.t3, fontSize: 14),
                       border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 11),
                     ),
                   ),
                 ),
@@ -314,19 +351,26 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
                   final reply = _replyingTo;
                   setState(() => _replyingTo = null);
                   _msgController.clear();
+                  // ── БАГ 5: правильный формат reply: "↩ username|quoted|text"
                   final fullText = reply != null
-                      ? '↩ ${reply.username}: ${reply.content}\n$text'
+                      ? '↩ ${reply.username}|${reply.content}|$text'
                       : text;
-                  ref.read(clanNotifierProvider.notifier).sendMessage(widget.clan.id, fullText);
+                  ref.read(clanNotifierProvider.notifier)
+                      .sendMessage(widget.clan.id, fullText);
                 },
                 child: Container(
                   width: 44, height: 44,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [AppTheme.accent, AppTheme.accent2]),
+                    gradient: const LinearGradient(
+                        colors: [AppTheme.accent, AppTheme.accent2]),
                     shape: BoxShape.circle,
-                    boxShadow: [BoxShadow(color: AppTheme.accent.withOpacity(0.35), blurRadius: 10, offset: const Offset(0, 4))],
+                    boxShadow: [BoxShadow(
+                        color: AppTheme.accent.withValues(alpha: 0.35),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4))],
                   ),
-                  child: const Icon(Icons.send_rounded, color: Colors.white, size: 19),
+                  child: const Icon(Icons.send_rounded,
+                      color: Colors.white, size: 19),
                 ),
               ),
             ],
@@ -336,9 +380,10 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
     );
   }
 
-  void _showMessageMenu(BuildContext context, WidgetRef ref, ClanMessageModel msg, bool isMe, bool isBoss, String currentUserId) {
+  void _showMessageMenu(BuildContext ctx, ClanMessageModel msg,
+      bool isMe, bool isBoss) {
     showModalBottomSheet(
-      context: context,
+      context: ctx,
       backgroundColor: Colors.transparent,
       builder: (_) => Container(
         padding: const EdgeInsets.all(16),
@@ -349,105 +394,142 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(color: AppTheme.t4, borderRadius: BorderRadius.circular(2))),
+            Container(
+                width: 36, height: 4,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                    color: AppTheme.t4,
+                    borderRadius: BorderRadius.circular(2))),
             ListTile(
               leading: const Icon(Icons.reply_rounded, color: AppTheme.accent),
-              title: Text('Reply', style: GoogleFonts.inter(fontWeight: FontWeight.w500, color: AppTheme.accent)),
+              title: Text('Reply',
+                  style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w500, color: AppTheme.accent)),
               onTap: () {
-                Navigator.pop(context);
+                Navigator.pop(ctx);
                 if (mounted) setState(() => _replyingTo = msg);
               },
             ),
             ListTile(
               leading: const Icon(Icons.copy_outlined),
-              title: Text('Copy', style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
+              title: Text('Copy',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
               onTap: () {
-                Navigator.pop(context);
+                Navigator.pop(ctx);
                 Clipboard.setData(ClipboardData(text: msg.content));
               },
             ),
-            if (isMe || isBoss) ListTile(
-              leading: const Icon(Icons.delete_outline_rounded, color: AppTheme.red),
-              title: Text('Delete', style: GoogleFonts.inter(fontWeight: FontWeight.w500, color: AppTheme.red)),
-              onTap: () {
-                Navigator.pop(context);
-                ref.read(clanNotifierProvider.notifier).deleteMessage(msg.id);
-              },
-            ),
-            if (isBoss && !isMe) ListTile(
-              leading: const Icon(Icons.person_remove_rounded, color: AppTheme.red),
-              title: Text('Kick from clan', style: GoogleFonts.inter(fontWeight: FontWeight.w500, color: AppTheme.red)),
-              onTap: () {
-                Navigator.pop(context);
-                showDialog(
-                  context: context,
-                  builder: (_) => AlertDialog(
-                    title: Text('Kick ${msg.username}?', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
-                    content: const Text('This member will be removed from the clan.'),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          ref.read(clanNotifierProvider.notifier).kickMember(msg.userId, widget.clan.id);
-                          // Refresh members list
-                          ref.invalidate(clanMembersProvider(widget.clan.id));
-                        },
-                        child: const Text('Kick', style: TextStyle(color: AppTheme.red, fontWeight: FontWeight.w700)),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
+            // ── БАГ 4: Delete сообщения ──────────────────────────────────
+            if (isMe || isBoss)
+              ListTile(
+                leading: const Icon(Icons.delete_outline_rounded,
+                    color: AppTheme.red),
+                title: Text('Delete',
+                    style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w500, color: AppTheme.red)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  ref.read(clanNotifierProvider.notifier)
+                      .deleteMessage(msg.id);
+                },
+              ),
+            if (isBoss && !isMe)
+              ListTile(
+                leading: const Icon(Icons.person_remove_rounded,
+                    color: AppTheme.red),
+                title: Text('Kick from clan',
+                    style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w500, color: AppTheme.red)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _confirmKick(msg.userId, msg.username);
+                },
+              ),
           ],
         ),
       ),
     );
   }
 
+  void _confirmKick(String userId, String username) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('Kick $username?',
+            style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+        content: const Text('This member will be removed from the clan.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ref.read(clanNotifierProvider.notifier)
+                  .kickMember(userId, widget.clan.id);
+              ref.invalidate(clanMembersProvider(widget.clan.id));
+            },
+            child: const Text('Kick',
+                style: TextStyle(
+                    color: AppTheme.red, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMessage(ClanMessageModel msg, bool isMe) {
+    final isBoss = widget.clan.bossId ==
+        ref.read(supabaseProvider).auth.currentUser?.id;
     return GestureDetector(
-      onLongPress: () => _showMessageMenu(context, ref, msg, isMe, widget.clan.bossId == ref.read(supabaseProvider).auth.currentUser?.id, ref.read(supabaseProvider).auth.currentUser?.id ?? ''),
+      onLongPress: () => _showMessageMenu(context, msg, isMe, isBoss),
       child: Padding(
-        padding: EdgeInsets.only(bottom: 12, left: isMe ? 48 : 0, right: isMe ? 0 : 48),
+        padding: EdgeInsets.only(
+            bottom: 12, left: isMe ? 48 : 0, right: isMe ? 0 : 48),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
-          mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+          mainAxisAlignment:
+              isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
           children: [
             if (!isMe) ...[
-              GestureDetector(
-                onTap: () {
-                  // Navigate to user profile - future feature
-                },
-                child: CircleAvatar(
-                  radius: 16,
-                  backgroundColor: AppTheme.accent.withOpacity(0.15),
-                  backgroundImage: msg.avatarUrl != null
-                      ? CachedNetworkImageProvider(msg.avatarUrl!) : null,
-                  child: msg.avatarUrl == null
-                      ? Text(
-                          msg.username.isNotEmpty ? msg.username[0].toUpperCase() : '?',
-                          style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.accent),
-                        )
-                      : null,
-                ),
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: AppTheme.accent.withValues(alpha: 0.15),
+                backgroundImage: msg.avatarUrl != null
+                    ? CachedNetworkImageProvider(msg.avatarUrl!)
+                    : null,
+                child: msg.avatarUrl == null
+                    ? Text(
+                        msg.username.isNotEmpty
+                            ? msg.username[0].toUpperCase()
+                            : '?',
+                        style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.accent),
+                      )
+                    : null,
               ),
               const SizedBox(width: 8),
             ],
             Flexible(
               child: Column(
-                crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                crossAxisAlignment: isMe
+                    ? CrossAxisAlignment.end
+                    : CrossAxisAlignment.start,
                 children: [
                   if (!isMe)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 3, left: 2),
                       child: Text(msg.username,
-                          style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.t3)),
+                          style: GoogleFonts.inter(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.t3)),
                     ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
                       color: isMe ? AppTheme.accent : AppTheme.white,
                       borderRadius: BorderRadius.only(
@@ -456,12 +538,14 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
                         bottomLeft: Radius.circular(isMe ? 18 : 4),
                         bottomRight: Radius.circular(isMe ? 4 : 18),
                       ),
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)],
+                      boxShadow: [
+                        BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 4)
+                      ],
                     ),
-                    child: Text(
-                      msg.content,
-                      style: GoogleFonts.inter(fontSize: 14, color: isMe ? Colors.white : AppTheme.t1),
-                    ),
+                    // ── БАГ 5: используем _buildMessageContent ───────────
+                    child: _buildMessageContent(msg, isMe),
                   ),
                 ],
               ),
@@ -472,9 +556,12 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
     );
   }
 
+  // ── БАГ 6: Kick через Members вкладку (долгое нажатие) ───────────────────
   Widget _buildMembers(bool isBoss) {
     final membersAsync = ref.watch(clanMembersProvider(widget.clan.id));
     final requestsAsync = ref.watch(joinRequestsProvider(widget.clan.id));
+    final currentUserId =
+        ref.read(supabaseProvider).auth.currentUser?.id ?? '';
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -487,7 +574,11 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Join Requests (${requests.length})',
-                          style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: 0.5, color: AppTheme.t3)),
+                          style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.5,
+                              color: AppTheme.t3)),
                       const SizedBox(height: 10),
                       ...requests.map((r) => _buildRequestCard(r)),
                       const SizedBox(height: 20),
@@ -501,62 +592,102 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Members (${members.length})',
-                  style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: 0.5, color: AppTheme.t3)),
+                  style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.5,
+                      color: AppTheme.t3)),
               const SizedBox(height: 10),
-              ...members.map((m) => _buildMemberCard(m)),
+              ...members.map((m) => _buildMemberCard(
+                    m,
+                    isBoss: isBoss,
+                    isMe: m.userId == currentUserId,
+                  )),
             ],
           ),
-          loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.accent)),
+          loading: () => const Center(
+              child: CircularProgressIndicator(color: AppTheme.accent)),
           error: (e, _) => Text('Error: $e'),
         ),
       ],
     );
   }
 
-  Widget _buildMemberCard(ClanMemberModel member) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: AppTheme.white, borderRadius: BorderRadius.circular(16)),
-      child: Row(
-        children: [
-          Stack(
-            children: [
-              CircleAvatar(
-                radius: 22,
-                backgroundColor: AppTheme.accent.withOpacity(0.12),
-                backgroundImage: member.avatarUrl != null ? CachedNetworkImageProvider(member.avatarUrl!) : null,
-                child: member.avatarUrl == null
-                    ? Text(member.username.isNotEmpty ? member.username[0].toUpperCase() : '?',
-                        style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppTheme.accent))
-                    : null,
-              ),
-              if (member.isOnline)
-                Positioned(
-                  bottom: 0, right: 0,
-                  child: Container(
-                    width: 12, height: 12,
-                    decoration: BoxDecoration(
-                      color: AppTheme.green, shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
+  Widget _buildMemberCard(ClanMemberModel member,
+      {required bool isBoss, required bool isMe}) {
+    return GestureDetector(
+      // Долгое нажатие — кик (только boss, не себя)
+      onLongPress: (isBoss && !isMe && member.role != 'boss')
+          ? () => _confirmKick(member.userId, member.username)
+          : null,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppTheme.white,
+          borderRadius: BorderRadius.circular(16),
+          // Подсветка — можно кикнуть
+          border: (isBoss && !isMe && member.role != 'boss')
+              ? Border.all(color: AppTheme.sep)
+              : null,
+        ),
+        child: Row(
+          children: [
+            Stack(
+              children: [
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor: AppTheme.accent.withValues(alpha: 0.12),
+                  backgroundImage: member.avatarUrl != null
+                      ? CachedNetworkImageProvider(member.avatarUrl!)
+                      : null,
+                  child: member.avatarUrl == null
+                      ? Text(
+                          member.username.isNotEmpty
+                              ? member.username[0].toUpperCase()
+                              : '?',
+                          style: GoogleFonts.inter(
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.accent))
+                      : null,
+                ),
+                if (member.isOnline)
+                  Positioned(
+                    bottom: 0, right: 0,
+                    child: Container(
+                      width: 12, height: 12,
+                      decoration: BoxDecoration(
+                        color: AppTheme.green,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
                     ),
                   ),
-                ),
-            ],
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(member.username, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600)),
-                Text('${member.kmRan.toStringAsFixed(1)} km · ${member.territoriesCaptured} zones',
-                    style: GoogleFonts.inter(fontSize: 12, color: AppTheme.t3)),
               ],
             ),
-          ),
-          _roleTag(member.role),
-        ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(member.username,
+                      style: GoogleFonts.inter(
+                          fontSize: 14, fontWeight: FontWeight.w600)),
+                  Text(
+                      '${member.kmRan.toStringAsFixed(1)} km · ${member.territoriesCaptured} zones',
+                      style: GoogleFonts.inter(
+                          fontSize: 12, color: AppTheme.t3)),
+                ],
+              ),
+            ),
+            _roleTag(member.role),
+            if (isBoss && !isMe && member.role != 'boss') ...[
+              const SizedBox(width: 8),
+              Icon(Icons.more_vert,
+                  size: 16, color: AppTheme.t4),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -568,44 +699,61 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
       decoration: BoxDecoration(
         color: AppTheme.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.accent.withOpacity(0.2)),
+        border: Border.all(color: AppTheme.accent.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
           CircleAvatar(
             radius: 22,
-            backgroundColor: AppTheme.accent.withOpacity(0.12),
-            child: Text(request.username.isNotEmpty ? request.username[0].toUpperCase() : '?',
-                style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppTheme.accent)),
+            backgroundColor: AppTheme.accent.withValues(alpha: 0.12),
+            child: Text(
+                request.username.isNotEmpty
+                    ? request.username[0].toUpperCase()
+                    : '?',
+                style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w700, color: AppTheme.accent)),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(request.username, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600)),
-                Text('${request.kmRan.toStringAsFixed(1)} km · ${request.territoriesCaptured} zones',
-                    style: GoogleFonts.inter(fontSize: 12, color: AppTheme.t3)),
+                Text(request.username,
+                    style: GoogleFonts.inter(
+                        fontSize: 14, fontWeight: FontWeight.w600)),
+                Text(
+                    '${request.kmRan.toStringAsFixed(1)} km · ${request.territoriesCaptured} zones',
+                    style: GoogleFonts.inter(
+                        fontSize: 12, color: AppTheme.t3)),
               ],
             ),
           ),
           Row(
             children: [
               GestureDetector(
-                onTap: () => ref.read(clanNotifierProvider.notifier).rejectRequest(request.id),
+                onTap: () => ref
+                    .read(clanNotifierProvider.notifier)
+                    .rejectRequest(request.id),
                 child: Container(
                   width: 36, height: 36,
-                  decoration: BoxDecoration(color: AppTheme.red.withOpacity(0.1), shape: BoxShape.circle),
+                  decoration: BoxDecoration(
+                      color: AppTheme.red.withValues(alpha: 0.1),
+                      shape: BoxShape.circle),
                   child: const Icon(Icons.close, color: AppTheme.red, size: 18),
                 ),
               ),
               const SizedBox(width: 8),
               GestureDetector(
-                onTap: () => ref.read(clanNotifierProvider.notifier).acceptRequest(request),
+                onTap: () => ref
+                    .read(clanNotifierProvider.notifier)
+                    .acceptRequest(request),
                 child: Container(
                   width: 36, height: 36,
-                  decoration: BoxDecoration(color: AppTheme.green.withOpacity(0.1), shape: BoxShape.circle),
-                  child: const Icon(Icons.check, color: AppTheme.green, size: 18),
+                  decoration: BoxDecoration(
+                      color: AppTheme.green.withValues(alpha: 0.1),
+                      shape: BoxShape.circle),
+                  child:
+                      const Icon(Icons.check, color: AppTheme.green, size: 18),
                 ),
               ),
             ],
@@ -622,13 +770,19 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
         children: [
           Container(
             width: 72, height: 72,
-            decoration: BoxDecoration(color: AppTheme.accent.withOpacity(0.1), shape: BoxShape.circle),
-            child: const Icon(Icons.map_outlined, size: 36, color: AppTheme.accent),
+            decoration: BoxDecoration(
+                color: AppTheme.accent.withValues(alpha: 0.1),
+                shape: BoxShape.circle),
+            child: const Icon(Icons.map_outlined,
+                size: 36, color: AppTheme.accent),
           ),
           const SizedBox(height: 16),
-          Text('Territory Map', style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700)),
+          Text('Territory Map',
+              style: GoogleFonts.inter(
+                  fontSize: 16, fontWeight: FontWeight.w700)),
           const SizedBox(height: 6),
-          Text('View your clan\'s captured zones', style: GoogleFonts.inter(fontSize: 14, color: AppTheme.t3)),
+          Text("View your clan's captured zones",
+              style: GoogleFonts.inter(fontSize: 14, color: AppTheme.t3)),
         ],
       ),
     );
@@ -647,44 +801,60 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
             margin: const EdgeInsets.only(bottom: 8),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: isHighlighted ? AppTheme.accent.withOpacity(0.08) : AppTheme.white,
+              color: isHighlighted
+                  ? AppTheme.accent.withValues(alpha: 0.08)
+                  : AppTheme.white,
               borderRadius: BorderRadius.circular(14),
-              border: isHighlighted ? Border.all(color: AppTheme.accent.withOpacity(0.3)) : null,
+              border: isHighlighted
+                  ? Border.all(
+                      color: AppTheme.accent.withValues(alpha: 0.3))
+                  : null,
             ),
             child: Row(
               children: [
                 SizedBox(
                   width: 32,
-                  child: Text('#${i + 1}', style: GoogleFonts.inter(
-                    fontSize: 15, fontWeight: FontWeight.w800,
-                    color: i == 0 ? AppTheme.gold : AppTheme.t3,
-                  )),
+                  child: Text('#${i + 1}',
+                      style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: i == 0 ? AppTheme.gold : AppTheme.t3)),
                 ),
                 Container(
                   width: 36, height: 24,
-                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(6)),
+                  decoration:
+                      BoxDecoration(borderRadius: BorderRadius.circular(6)),
                   child: clan.flagUrl != null && clan.flagUrl!.isNotEmpty
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(6),
-                          child: CachedNetworkImage(imageUrl: clan.flagUrl!, fit: BoxFit.cover),
+                          child: CachedNetworkImage(
+                              imageUrl: clan.flagUrl!, fit: BoxFit.cover),
                         )
-                      : Container(color: AppTheme.accent.withOpacity(0.2),
-                          child: const Icon(Icons.shield_rounded, size: 16, color: AppTheme.accent)),
+                      : Container(
+                          color: AppTheme.accent.withValues(alpha: 0.2),
+                          child: const Icon(Icons.shield_rounded,
+                              size: 16, color: AppTheme.accent)),
                 ),
                 const SizedBox(width: 12),
-                Expanded(child: Text(clan.name, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600))),
+                Expanded(
+                    child: Text(clan.name,
+                        style: GoogleFonts.inter(
+                            fontSize: 14, fontWeight: FontWeight.w600))),
                 Text('${clan.territoryCount} zones',
-                    style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.accent)),
+                    style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.accent)),
               ],
             ),
           );
         },
       ),
-      loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.accent)),
+      loading: () =>
+          const Center(child: CircularProgressIndicator(color: AppTheme.accent)),
       error: (e, _) => Center(child: Text('Error: $e')),
     );
   }
-
 
   void _showClanSettings(BuildContext context, WidgetRef ref, bool isBoss) {
     showModalBottomSheet(
@@ -699,46 +869,75 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(width: 36, height: 4,
-              decoration: BoxDecoration(color: const Color(0xFFC0C0C5), borderRadius: BorderRadius.circular(2))),
+            Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                    color: const Color(0xFFC0C0C5),
+                    borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 16),
-            Text('Clan Settings', style: GoogleFonts.inter(fontSize: 17, fontWeight: FontWeight.w700)),
+            Text('Clan Settings',
+                style: GoogleFonts.inter(
+                    fontSize: 17, fontWeight: FontWeight.w700)),
             const SizedBox(height: 16),
             if (!isBoss)
               ListTile(
-                leading: const Icon(Icons.exit_to_app_rounded, color: Color(0xFFFF3B30)),
-                title: Text('Leave Clan', style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: const Color(0xFFFF3B30))),
+                leading: const Icon(Icons.exit_to_app_rounded,
+                    color: Color(0xFFFF3B30)),
+                title: Text('Leave Clan',
+                    style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFFFF3B30))),
                 onTap: () async {
                   Navigator.pop(context);
-                  await ref.read(clanNotifierProvider.notifier).leaveClan();
+                  await ref
+                      .read(clanNotifierProvider.notifier)
+                      .leaveClan();
                   if (context.mounted) context.go('/clan');
                 },
               ),
             if (isBoss) ...[
               ListTile(
-                leading: const Icon(Icons.edit_outlined, color: Color(0xFF5B5BD6)),
-                title: Text('Edit Clan', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                leading: const Icon(Icons.edit_outlined,
+                    color: Color(0xFF5B5BD6)),
+                title: Text('Edit Clan',
+                    style:
+                        GoogleFonts.inter(fontWeight: FontWeight.w600)),
                 onTap: () => Navigator.pop(context),
               ),
               ListTile(
-                leading: const Icon(Icons.delete_outline_rounded, color: Color(0xFFFF3B30)),
-                title: Text('Delete Clan', style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: const Color(0xFFFF3B30))),
+                leading: const Icon(Icons.delete_outline_rounded,
+                    color: Color(0xFFFF3B30)),
+                title: Text('Delete Clan',
+                    style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFFFF3B30))),
                 onTap: () async {
                   Navigator.pop(context);
                   showDialog(
                     context: context,
                     builder: (_) => AlertDialog(
-                      title: Text('Delete Clan?', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
-                      content: const Text('This will permanently delete the clan and all its territories.'),
+                      title: Text('Delete Clan?',
+                          style: GoogleFonts.inter(
+                              fontWeight: FontWeight.w700)),
+                      content: const Text(
+                          'This will permanently delete the clan and all its territories.'),
                       actions: [
-                        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                        TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Cancel')),
                         TextButton(
                           onPressed: () async {
                             Navigator.pop(context);
-                            await ref.read(clanNotifierProvider.notifier).deleteClan(widget.clan.id);
+                            await ref
+                                .read(clanNotifierProvider.notifier)
+                                .deleteClan(widget.clan.id);
                             if (context.mounted) context.go('/clan');
                           },
-                          child: const Text('Delete', style: TextStyle(color: Color(0xFFFF3B30), fontWeight: FontWeight.w700)),
+                          child: const Text('Delete',
+                              style: TextStyle(
+                                  color: Color(0xFFFF3B30),
+                                  fontWeight: FontWeight.w700)),
                         ),
                       ],
                     ),
@@ -756,28 +955,39 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.25)),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
-      child: Text(text, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+      child: Text(text,
+          style: GoogleFonts.inter(
+              fontSize: 11, fontWeight: FontWeight.w700, color: color)),
     );
   }
 
   Widget _roleTag(String role) {
     Color color;
     switch (role) {
-      case 'boss': color = AppTheme.gold; break;
-      case 'underboss': color = AppTheme.accent; break;
-      case 'soldier': color = AppTheme.green; break;
-      default: color = AppTheme.t3;
+      case 'boss':
+        color = AppTheme.gold;
+        break;
+      case 'underboss':
+        color = AppTheme.accent;
+        break;
+      case 'soldier':
+        color = AppTheme.green;
+        break;
+      default:
+        color = AppTheme.t3;
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
+      decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(6)),
       child: Text(role[0].toUpperCase() + role.substring(1),
-          style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
+          style: GoogleFonts.inter(
+              fontSize: 11, fontWeight: FontWeight.w600, color: color)),
     );
   }
 }
-// Leave clan functionality is in settings gear button
