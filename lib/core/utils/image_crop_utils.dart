@@ -22,20 +22,16 @@ class ImageCropUtils {
 
   static Future<File?> _crop(String path, CropRatio ratio, String title) async {
     CropAspectRatio aspectRatio;
-    List<CropAspectRatioPreset> presets;
 
     switch (ratio) {
       case CropRatio.square:
         aspectRatio = const CropAspectRatio(ratioX: 1, ratioY: 1);
-        presets = [CropAspectRatioPreset.square];
         break;
       case CropRatio.banner:
         aspectRatio = const CropAspectRatio(ratioX: 16, ratioY: 9);
-        presets = [CropAspectRatioPreset.ratio16x9];
         break;
       case CropRatio.flag:
         aspectRatio = const CropAspectRatio(ratioX: 3, ratioY: 2);
-        presets = [CropAspectRatioPreset.ratio3x2];
         break;
     }
 
