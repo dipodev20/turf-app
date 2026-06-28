@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:turf_app/core/theme/app_theme.dart';
 import 'package:turf_app/features/auth/providers/auth_provider.dart';
 import 'dart:io';
+import 'package:turf_app/core/utils/image_crop_utils.dart';
 
 class EditProfileScreen extends ConsumerStatefulWidget {
   const EditProfileScreen({super.key});
@@ -43,17 +43,21 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   }
 
   Future<void> _pickAvatar() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
-    if (picked == null) return;
-    setState(() => _avatarFile = File(picked.path));
+    final file = await ImageCropUtils.pickAndCrop(
+      ratio: CropRatio.square,
+      toolbarTitle: 'Crop Avatar',
+    );
+    if (file == null) return;
+    setState(() => _avatarFile = file);
   }
 
   Future<void> _pickCover() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
-    if (picked == null) return;
-    setState(() => _coverFile = File(picked.path));
+    final file = await ImageCropUtils.pickAndCrop(
+      ratio: CropRatio.banner,
+      toolbarTitle: 'Crop Cover',
+    );
+    if (file == null) return;
+    setState(() => _coverFile = file);
   }
 
   Future<String?> _uploadImage(File file, String folder) async {

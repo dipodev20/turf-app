@@ -153,29 +153,40 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
             child: Row(
               children: [
-                Container(
-                  width: 38, height: 38,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 6)],
-                  ),
-                  child: ClipOval(
-                    child: post.clanFlagUrl != null && post.clanFlagUrl!.isNotEmpty
-                        ? CachedNetworkImage(imageUrl: post.clanFlagUrl!, fit: BoxFit.cover)
-                        : Container(
-                            color: AppTheme.accent,
-                            child: const Icon(Icons.shield_rounded, color: Colors.white, size: 20),
+                // Двойной аватар: флаг клана + аватарка автора
+                SizedBox(
+                  width: 52, height: 38,
+                  child: Stack(
+                    children: [
+                      // Clan flag (слева-снизу)
+                      Positioned(
+                        left: 0, bottom: 0,
+                        child: Container(
+                          width: 28, height: 28,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 1.5),
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 4)],
                           ),
+                          child: ClipOval(
+                            child: post.clanFlagUrl != null && post.clanFlagUrl!.isNotEmpty
+                                ? CachedNetworkImage(imageUrl: post.clanFlagUrl!, fit: BoxFit.cover)
+                                : Container(color: AppTheme.accent,
+                                    child: const Icon(Icons.shield_rounded, color: Colors.white, size: 14)),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 6),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
-                          Text(post.clanName, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700)),
+                          Text(post.authorName, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700)),
                           const SizedBox(width: 4),
                           Container(
                             width: 16, height: 16,
@@ -185,7 +196,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                         ],
                       ),
                       Text(
-                        '${post.city ?? ""}  ·  ${timeago.format(post.createdAt)}',
+                        '${post.clanName}  ·  ${timeago.format(post.createdAt)}',
                         style: GoogleFonts.inter(fontSize: 12, color: AppTheme.t3),
                       ),
                     ],

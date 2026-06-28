@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:turf_app/core/theme/app_theme.dart';
 import 'package:turf_app/features/clan/providers/clan_provider.dart';
 import 'dart:io';
+import 'package:turf_app/core/utils/image_crop_utils.dart';
 
 class CreateClanScreen extends ConsumerStatefulWidget {
   const CreateClanScreen({super.key});
@@ -56,10 +56,12 @@ class _CreateClanScreenState extends ConsumerState<CreateClanScreen> {
   }
 
   Future<void> _pickFlag() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
-    if (picked == null) return;
-    setState(() => _flagFile = File(picked.path));
+    final file = await ImageCropUtils.pickAndCrop(
+      ratio: CropRatio.flag,
+      toolbarTitle: 'Crop Clan Flag',
+    );
+    if (file == null) return;
+    setState(() => _flagFile = file);
   }
 
   Future<String?> _uploadFlag() async {

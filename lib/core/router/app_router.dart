@@ -15,6 +15,7 @@ import 'package:turf_app/features/shop/screens/shop_screen.dart';
 import 'package:turf_app/features/profile/screens/profile_screen.dart';
 import 'package:turf_app/features/profile/screens/edit_profile_screen.dart';
 import 'package:turf_app/features/auth/providers/auth_provider.dart';
+import 'package:turf_app/features/profile/screens/user_profile_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
@@ -46,6 +47,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (c, s) => const ProfileScreen(),
             routes: [
               GoRoute(path: 'edit', builder: (c, s) => const EditProfileScreen()),
+              GoRoute(
+                path: ':userId',
+                builder: (c, s) => UserProfileScreen(userId: s.pathParameters['userId']!),
+              ),
             ],
           ),
         ],
