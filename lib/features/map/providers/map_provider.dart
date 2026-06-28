@@ -7,7 +7,6 @@ import 'package:sensors_plus/sensors_plus.dart';
 import 'package:turf_app/features/auth/providers/auth_provider.dart';
 import 'package:turf_app/features/map/models/territory_model.dart';
 import 'package:turf_app/core/constants/app_constants.dart';
-import 'package:uuid/uuid.dart';
 
 // ── KALMAN FILTER ──────────────────────────────────────────────
 class KalmanFilter {
@@ -196,10 +195,6 @@ class RunNotifier extends Notifier<RunState> {
   Position? _lastPos;
   DateTime? _lastPosTime;
   
-  // Sensor fusion
-  double _accelX = 0, _accelY = 0, _accelZ = 0;
-  LatLng? _deadReckonPos;
-  DateTime? _lastAccelTime;
 
   @override
   RunState build() {
@@ -216,7 +211,6 @@ class RunNotifier extends Notifier<RunState> {
     _kalman = null;
     _lastPos = null;
     _lastPosTime = null;
-    _deadReckonPos = null;
 
     state = state.copyWith(
       isRunning: true, routePoints: [], polygonPoints: [],
@@ -226,30 +220,26 @@ class RunNotifier extends Notifier<RunState> {
     _timer = Timer.periodic(const Duration(seconds: 1), (_) =>
         state = state.copyWith(durationSeconds: state.durationSeconds + 1));
 
-    // Start accelerometer for sensor fusion
-    _accelSub = accelerometerEventStream().listen((event) {
-      _accelX = event.x;
-      _accelY = event.y;
-      _accelZ = event.z;
-      _lastAccelTime = DateTime.now();
-    });
-
     _positionSub = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.best,
-        distanceFilter: 1,
+        accuracy: LocationAccuracy.bestForNavigation,
+        distanceFilter: 2,
       ),
     ).listen((pos) {
-      if (pos.accuracy > 50) return;
+      // Фильтр точности — отбрасываем плохие точки
+      if (pos.accuracy > 30) return;
 
-      // Anti-teleport
+      // Anti-teleport: максимум 8 м/с (бег ~29 км/ч)
       if (_lastPos != null && _lastPosTime != null) {
         final elapsed = DateTime.now().difference(_lastPosTime!).inMilliseconds / 1000.0;
         if (elapsed > 0) {
           final d = _dist.as(LengthUnit.Meter,
               LatLng(_lastPos!.latitude, _lastPos!.longitude),
               LatLng(pos.latitude, pos.longitude));
-          if (d / elapsed > 20) return;
+          // Телепорт: скорость > 12 м/с (43 км/ч) — пропускаем
+          if (d / elapsed > 12) return;
+          // Слишком малое смещение — шум GPS
+          if (d < 1.5 && elapsed < 3) return;
         }
       }
 
@@ -280,10 +270,24 @@ class RunNotifier extends Notifier<RunState> {
       if (seg < 50) newDist += seg / 1000;
     }
 
-    // Buffer polygon for preview
-    final poly = newPoints.length >= 3
-        ? buildBufferPolygon(newPoints, 8.0)
-        : state.polygonPoints;
+    // Polygon preview:
+    // - Если близко к старту И прошли достаточно — показываем замкнутый контур
+    // - Иначе — буфер вдоль трека
+    List<LatLng> poly;
+    if (newPoints.length >= 3) {
+      final closingDist = newPoints.length > 10
+          ? _dist.as(LengthUnit.Meter, newPoints.first, smoothed)
+          : double.infinity;
+      if (closingDist < 60 && newDist >= 0.1) {
+        // Замкнутый контур — заполненный полигон из точек трека
+        poly = [...newPoints, newPoints.first];
+      } else {
+        // Буфер вдоль линии
+        poly = buildBufferPolygon(newPoints, 8.0);
+      }
+    } else {
+      poly = state.polygonPoints;
+    }
 
     state = state.copyWith(
       routePoints: newPoints,
@@ -317,15 +321,28 @@ class RunNotifier extends Notifier<RunState> {
   }
 
   void _checkCapture(List<LatLng> points, double distKm) {
+    if (points.length < 15) return;
+
     final closingDist = _dist.as(LengthUnit.Meter, points.first, points.last);
-    if (closingDist < 80 && distKm >= 0.15) {
-      double maxD = 0;
-      for (final p in points) {
-        final d = _dist.as(LengthUnit.Meter, points.first, p);
-        if (d > maxD) maxD = d;
-      }
-      if (maxD > 20) _captureTerritory(List.from(points));
+
+    // Замыкание: нужно вернуться в радиус 25м от старта
+    // И пройти минимум 150м
+    if (closingDist > 25 || distKm < 0.15) return;
+
+    // Проверяем что был реальный обход — макс удаление от старта > 30м
+    double maxD = 0;
+    for (final p in points) {
+      final d = _dist.as(LengthUnit.Meter, points.first, p);
+      if (d > maxD) maxD = d;
     }
+    if (maxD < 30) return;
+
+    // Проверяем что это реальный замкнутый контур а не прямая линия
+    // Площадь должна быть достаточной
+    final area = _calcArea(points);
+    if (area < 200) return; // минимум 200 кв.м
+
+    _captureTerritory(List.from(points));
   }
 
   Future<void> _captureTerritory(List<LatLng> points) async {
