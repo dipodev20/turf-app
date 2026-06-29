@@ -154,55 +154,57 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
             child: Row(
               children: [
-                // Двойной аватар: флаг клана + аватарка автора
+                // Двойной аватар: клан снизу, юзер сверху
                 SizedBox(
-                  width: 58, height: 44,
+                  width: 52, height: 40,
                   child: Stack(
                     children: [
-                      // Clan flag (tap → ClanDetail)
+                      // Clan flag (слева-снизу, под юзером)
                       Positioned(
-                        left: 0, top: 0,
+                        left: 0, bottom: 0,
                         child: GestureDetector(
                           onTap: () => Navigator.push(context, MaterialPageRoute(
                               builder: (_) => ClanDetailScreen(clanId: post.clanId))),
                           child: Container(
-                            width: 36, height: 36,
+                            width: 32, height: 32,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               border: Border.all(color: Colors.white, width: 2),
-                              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 6)],
                             ),
                             child: ClipOval(
                               child: post.clanFlagUrl != null && post.clanFlagUrl!.isNotEmpty
                                   ? CachedNetworkImage(imageUrl: post.clanFlagUrl!, fit: BoxFit.cover)
                                   : Container(color: AppTheme.accent,
-                                      child: const Icon(Icons.shield_rounded, color: Colors.white, size: 18)),
+                                      child: const Icon(Icons.shield_rounded, color: Colors.white, size: 16)),
                             ),
                           ),
                         ),
                       ),
-                      // Author avatar (tap → UserProfile)
+                      // Author avatar (справа-сверху, поверх клана)
                       Positioned(
-                        right: 0, bottom: 0,
+                        right: 0, top: 0,
                         child: GestureDetector(
                           onTap: () => Navigator.push(context, MaterialPageRoute(
                               builder: (_) => UserProfileScreen(userId: post.authorId))),
                           child: Container(
-                            width: 26, height: 26,
+                            width: 32, height: 32,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 1.5),
+                              border: Border.all(color: Colors.white, width: 2),
+                              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4)],
                             ),
                             child: ClipOval(
-                              child: Container(
-                                color: AppTheme.t2,
-                                child: Center(
-                                  child: Text(
-                                    post.authorName.isNotEmpty ? post.authorName[0].toUpperCase() : '?',
-                                    style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white),
-                                  ),
-                                ),
-                              ),
+                              child: post.authorAvatarUrl != null && post.authorAvatarUrl!.isNotEmpty
+                                  ? CachedNetworkImage(imageUrl: post.authorAvatarUrl!, fit: BoxFit.cover)
+                                  : Container(
+                                      color: AppTheme.t2,
+                                      child: Center(
+                                        child: Text(
+                                          post.authorName.isNotEmpty ? post.authorName[0].toUpperCase() : '?',
+                                          style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white),
+                                        ),
+                                      ),
+                                    ),
                             ),
                           ),
                         ),

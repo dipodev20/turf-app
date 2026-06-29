@@ -147,6 +147,7 @@ class FeedNotifier extends AsyncNotifier<List<PostModel>> {
       'clan_flag_url': clanData['flag_url'],
       'author_id': userId,
       'author_name': userData.username,
+      'author_avatar_url': userData.avatarUrl,
       'type': type,
       'content': content,
       'image_url': imageUrl,
