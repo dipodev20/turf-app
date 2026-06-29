@@ -117,10 +117,10 @@ class _ProfileBody extends ConsumerWidget {
                               child: Container(
                                 width: 16, height: 16,
                                 decoration: BoxDecoration(
-                                  color: AppTheme.green,
+                                  color: user.isActuallyOnline ? AppTheme.green : AppTheme.t4,
                                   shape: BoxShape.circle,
                                   border: Border.all(color: AppTheme.white, width: 2.5),
-                                  boxShadow: [BoxShadow(color: AppTheme.green.withOpacity(0.4), blurRadius: 6)],
+                                  boxShadow: user.isActuallyOnline ? [BoxShadow(color: AppTheme.green.withOpacity(0.4), blurRadius: 6)] : [],
                                 ),
                               ),
                             ),

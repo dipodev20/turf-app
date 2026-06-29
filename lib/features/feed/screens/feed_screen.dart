@@ -11,6 +11,7 @@ import 'package:turf_app/core/theme/app_theme.dart';
 import 'package:turf_app/features/feed/models/post_model.dart';
 import 'package:turf_app/features/feed/providers/feed_provider.dart';
 import 'package:turf_app/features/feed/screens/create_post_screen.dart';
+import 'package:turf_app/features/clan/screens/clan_detail_screen.dart';
 import 'package:turf_app/features/profile/screens/user_profile_screen.dart';
 
 class FeedScreen extends ConsumerStatefulWidget {
@@ -155,49 +156,87 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               children: [
                 // Двойной аватар: флаг клана + аватарка автора
                 SizedBox(
-                  width: 52, height: 38,
+                  width: 58, height: 44,
                   child: Stack(
                     children: [
-                      // Clan flag (слева-снизу)
+                      // Clan flag (tap → ClanDetail)
                       Positioned(
-                        left: 0, bottom: 0,
-                        child: Container(
-                          width: 28, height: 28,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 1.5),
-                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 4)],
+                        left: 0, top: 0,
+                        child: GestureDetector(
+                          onTap: () => Navigator.push(context, MaterialPageRoute(
+                              builder: (_) => ClanDetailScreen(clanId: post.clanId))),
+                          child: Container(
+                            width: 36, height: 36,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 6)],
+                            ),
+                            child: ClipOval(
+                              child: post.clanFlagUrl != null && post.clanFlagUrl!.isNotEmpty
+                                  ? CachedNetworkImage(imageUrl: post.clanFlagUrl!, fit: BoxFit.cover)
+                                  : Container(color: AppTheme.accent,
+                                      child: const Icon(Icons.shield_rounded, color: Colors.white, size: 18)),
+                            ),
                           ),
-                          child: ClipOval(
-                            child: post.clanFlagUrl != null && post.clanFlagUrl!.isNotEmpty
-                                ? CachedNetworkImage(imageUrl: post.clanFlagUrl!, fit: BoxFit.cover)
-                                : Container(color: AppTheme.accent,
-                                    child: const Icon(Icons.shield_rounded, color: Colors.white, size: 14)),
+                        ),
+                      ),
+                      // Author avatar (tap → UserProfile)
+                      Positioned(
+                        right: 0, bottom: 0,
+                        child: GestureDetector(
+                          onTap: () => Navigator.push(context, MaterialPageRoute(
+                              builder: (_) => UserProfileScreen(userId: post.authorId))),
+                          child: Container(
+                            width: 26, height: 26,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 1.5),
+                            ),
+                            child: ClipOval(
+                              child: Container(
+                                color: AppTheme.t2,
+                                child: Center(
+                                  child: Text(
+                                    post.authorName.isNotEmpty ? post.authorName[0].toUpperCase() : '?',
+                                    style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white),
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Text(post.authorName, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700)),
-                          const SizedBox(width: 4),
-                          Container(
-                            width: 16, height: 16,
-                            decoration: BoxDecoration(color: AppTheme.accent, shape: BoxShape.circle),
-                            child: const Icon(Icons.check, size: 10, color: Colors.white),
-                          ),
-                        ],
+                      GestureDetector(
+                        onTap: () => Navigator.push(context, MaterialPageRoute(
+                            builder: (_) => UserProfileScreen(userId: post.authorId))),
+                        child: Row(
+                          children: [
+                            Text(post.authorName, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700)),
+                            const SizedBox(width: 4),
+                            Container(
+                              width: 16, height: 16,
+                              decoration: BoxDecoration(color: AppTheme.accent, shape: BoxShape.circle),
+                              child: const Icon(Icons.check, size: 10, color: Colors.white),
+                            ),
+                          ],
+                        ),
                       ),
-                      Text(
-                        '${post.clanName}  ·  ${timeago.format(post.createdAt)}',
-                        style: GoogleFonts.inter(fontSize: 12, color: AppTheme.t3),
+                      GestureDetector(
+                        onTap: () => Navigator.push(context, MaterialPageRoute(
+                            builder: (_) => ClanDetailScreen(clanId: post.clanId))),
+                        child: Text(
+                          '${post.clanName}  ·  ${timeago.format(post.createdAt)}',
+                          style: GoogleFonts.inter(fontSize: 12, color: AppTheme.accent),
+                        ),
                       ),
                     ],
                   ),

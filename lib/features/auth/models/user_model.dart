@@ -142,9 +142,17 @@ class UserModel {
     );
   }
 
+  // Реальный онлайн — учитываем last_seen_at (5 минут таймаут)
+  bool get isActuallyOnline {
+    if (!isOnline) return false;
+    final seen = lastSeenAt;
+    if (seen == null) return false;
+    return DateTime.now().difference(seen).inMinutes < 5;
+  }
+
   // Форматировать "was online" время
   String get lastSeenText {
-    if (isOnline) return 'Online';
+    if (isActuallyOnline) return 'Online';
     final seen = lastSeenAt;
     if (seen == null) return 'Offline';
     final diff = DateTime.now().difference(seen);

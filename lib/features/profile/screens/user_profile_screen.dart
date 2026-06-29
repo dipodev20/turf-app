@@ -148,7 +148,7 @@ class _UserProfileBody extends ConsumerWidget {
                               child: Container(
                                 width: 16, height: 16,
                                 decoration: BoxDecoration(
-                                  color: user.isOnline ? AppTheme.green : AppTheme.t4,
+                                  color: user.isActuallyOnline ? AppTheme.green : AppTheme.t4,
                                   shape: BoxShape.circle,
                                   border: Border.all(color: AppTheme.white, width: 2.5),
                                 ),
@@ -190,7 +190,7 @@ class _UserProfileBody extends ConsumerWidget {
                               width: 7, height: 7,
                               margin: const EdgeInsets.only(right: 5),
                               decoration: BoxDecoration(
-                                color: user.isOnline ? AppTheme.green : AppTheme.t4,
+                                color: user.isActuallyOnline ? AppTheme.green : AppTheme.t4,
                                 shape: BoxShape.circle,
                               ),
                             ),
@@ -198,7 +198,7 @@ class _UserProfileBody extends ConsumerWidget {
                               user.lastSeenText,
                               style: GoogleFonts.inter(
                                   fontSize: 12,
-                                  color: user.isOnline ? AppTheme.green : AppTheme.t3,
+                                  color: user.isActuallyOnline ? AppTheme.green : AppTheme.t3,
                                   fontWeight: FontWeight.w500),
                             ),
                           ],

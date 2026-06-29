@@ -79,7 +79,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
     final territoriesAsync = ref.watch(territoriesProvider);
     final livePlayersAsync = ref.watch(livePlayersProvider);
     final runState = ref.watch(runProvider);
-    final myClan = ref.watch(myClanProvider).value;
 
     positionAsync.whenData((position) {
       if (position != null && _followUser) {
@@ -197,17 +196,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
             child: _buildTopBar(),
           ),
 
-          // ── SEASON BANNER ──
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 66,
-            left: 16, right: 16,
-            child: _buildSeasonBanner(myClan),
-          ),
-
           // ── RUNNING BANNER ──
           if (runState.isRunning)
             Positioned(
-              top: MediaQuery.of(context).padding.top + 124,
+              top: MediaQuery.of(context).padding.top + 66,
               left: 16, right: 16,
               child: _buildRunningBanner(runState),
             ),
@@ -215,7 +207,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
           // ── ARENA TOGGLE (только когда не бежим) ──
           if (!runState.isRunning)
             Positioned(
-              top: MediaQuery.of(context).padding.top + 124,
+              top: MediaQuery.of(context).padding.top + 66,
               left: 16,
               child: _buildArenaToggle(),
             ),
@@ -316,6 +308,32 @@ class _MapScreenState extends ConsumerState<MapScreen>
   Widget _buildTopBar() {
     return Row(
       children: [
+        // Search field
+        Expanded(
+          child: GestureDetector(
+            onTap: _showCitySearch,
+            child: Container(
+              height: 46,
+              decoration: BoxDecoration(
+                color: AppTheme.white,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1), blurRadius: 12)],
+              ),
+              child: Row(
+                children: [
+                  const SizedBox(width: 14),
+                  const Icon(Icons.search_rounded, color: AppTheme.t3, size: 18),
+                  const SizedBox(width: 8),
+                  Text('Search city...',
+                      style: GoogleFonts.inter(
+                          color: AppTheme.t3, fontSize: 14)),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
         // Notifications
         GestureDetector(
           onTap: () => Navigator.push(context,
@@ -325,22 +343,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
                 color: AppTheme.t1, size: 20),
           ),
         ),
-        const Spacer(),
-        // Zoom in
-        _topIconBtn(
-          onTap: () => _mapController.move(
-              _mapController.camera.center,
-              _mapController.camera.zoom + 1),
-          child: const Icon(Icons.add_rounded, color: AppTheme.t1, size: 22),
-        ),
-        const SizedBox(width: 8),
-        // Zoom out
-        _topIconBtn(
-          onTap: () => _mapController.move(
-              _mapController.camera.center,
-              _mapController.camera.zoom - 1),
-          child: const Icon(Icons.remove_rounded, color: AppTheme.t1, size: 22),
-        ),
         const SizedBox(width: 8),
         // Follow location
         GestureDetector(
@@ -348,23 +350,119 @@ class _MapScreenState extends ConsumerState<MapScreen>
             setState(() => _followUser = true);
             final pos = ref.read(currentPositionProvider).value;
             if (pos != null) {
-              _mapController.move(
-                  LatLng(pos.latitude, pos.longitude), 16);
+              _mapController.move(LatLng(pos.latitude, pos.longitude), 16);
             }
           },
           child: _topIconBtn(
             active: _followUser,
-            child: SizedBox(
-              width: 20, height: 20,
-              child: CustomPaint(
-                  painter: _SvgIcon(_followUser
-                      ? _MapIcons.locationFilled
-                      : _MapIcons.location,
-                      _followUser ? Colors.white : AppTheme.t1)),
+            child: Icon(
+              Icons.my_location_rounded,
+              color: _followUser ? Colors.white : AppTheme.t1,
+              size: 20,
             ),
           ),
         ),
       ],
+    );
+  }
+
+  void _showCitySearch() {
+    final _searchController = TextEditingController();
+    final List<Map<String, dynamic>> _cities = [
+      {'name': 'Bishkek', 'lat': 42.8746, 'lng': 74.5698},
+      {'name': 'Osh', 'lat': 40.5283, 'lng': 72.7985},
+      {'name': 'Almaty', 'lat': 43.2220, 'lng': 76.8512},
+      {'name': 'Tashkent', 'lat': 41.2995, 'lng': 69.2401},
+      {'name': 'Moscow', 'lat': 55.7558, 'lng': 37.6173},
+      {'name': 'Istanbul', 'lat': 41.0082, 'lng': 28.9784},
+      {'name': 'Dubai', 'lat': 25.2048, 'lng': 55.2708},
+      {'name': 'London', 'lat': 51.5074, 'lng': -0.1278},
+      {'name': 'New York', 'lat': 40.7128, 'lng': -74.0060},
+      {'name': 'Tokyo', 'lat': 35.6762, 'lng': 139.6503},
+    ];
+    List<Map<String, dynamic>> _filtered = List.from(_cities);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setModalState) => Container(
+          height: MediaQuery.of(context).size.height * 0.7,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                width: 36, height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                    color: AppTheme.t4,
+                    borderRadius: BorderRadius.circular(2)),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: TextField(
+                  controller: _searchController,
+                  autofocus: true,
+                  onChanged: (v) {
+                    setModalState(() {
+                      _filtered = _cities
+                          .where((c) => (c['name'] as String)
+                              .toLowerCase()
+                              .contains(v.toLowerCase()))
+                          .toList();
+                    });
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Search city...',
+                    hintStyle: GoogleFonts.inter(color: AppTheme.t3),
+                    prefixIcon: const Icon(Icons.search_rounded,
+                        color: AppTheme.t3, size: 18),
+                    filled: true,
+                    fillColor: AppTheme.bg,
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: _filtered.length,
+                  itemBuilder: (_, i) {
+                    final city = _filtered[i];
+                    return ListTile(
+                      leading: Container(
+                        width: 36, height: 36,
+                        decoration: BoxDecoration(
+                          color: AppTheme.accent.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.location_city_rounded,
+                            color: AppTheme.accent, size: 18),
+                      ),
+                      title: Text(city['name'],
+                          style: GoogleFonts.inter(
+                              fontSize: 15, fontWeight: FontWeight.w600)),
+                      onTap: () {
+                        Navigator.pop(context);
+                        _mapController.move(
+                          LatLng(city['lat'], city['lng']),
+                          14.0,
+                        );
+                        setState(() => _followUser = false);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

@@ -244,6 +244,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                     const SizedBox(height: 8),
                     TextField(
                       controller: _usernameController,
+                      maxLength: 20,
                       style: GoogleFonts.inter(fontSize: 15),
                       decoration: _deco('shadowwolf'),
                     ),
@@ -262,6 +263,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                     const SizedBox(height: 8),
                     TextField(
                       controller: _cityController,
+                      maxLength: 30,
                       style: GoogleFonts.inter(fontSize: 15),
                       decoration: _deco('Bishkek'),
                     ),
