@@ -8,7 +8,6 @@ import 'package:turf_app/core/constants/app_constants.dart';
 import 'package:turf_app/core/theme/app_theme.dart';
 import 'package:turf_app/features/map/providers/map_provider.dart';
 import 'package:turf_app/features/map/models/territory_model.dart';
-import 'package:turf_app/features/clan/providers/clan_provider.dart';
 import 'dart:ui' as ui;
 
 class MapScreen extends ConsumerStatefulWidget {
@@ -149,19 +148,19 @@ class _MapScreenState extends ConsumerState<MapScreen>
                 loading: () => const MarkerLayer(markers: []),
                 error: (_, __) => const MarkerLayer(markers: []),
               ),
-              // GPS accuracy circle
+              // GPS accuracy circle — небольшой декоративный индикатор
               if (runState.isRunning && _animatedPosition != null)
                 CircleLayer(
                   circles: [
                     CircleMarker(
                       point: _animatedPosition!,
-                      radius: runState.gpsAccuracy.clamp(5.0, 50.0),
+                      radius: runState.gpsAccuracy.clamp(3.0, 15.0),
                       useRadiusInMeter: true,
                       color: _accuracyColor(runState.gpsAccuracy)
-                          .withValues(alpha: 0.15),
+                          .withValues(alpha: 0.12),
                       borderColor: _accuracyColor(runState.gpsAccuracy)
-                          .withValues(alpha: 0.5),
-                      borderStrokeWidth: 1.5,
+                          .withValues(alpha: 0.4),
+                      borderStrokeWidth: 1.0,
                     ),
                   ],
                 ),
@@ -486,67 +485,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
     );
   }
 
-  // ── SEASON BANNER ─────────────────────────────────────────────────────────
-  Widget _buildSeasonBanner(dynamic myClan) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppTheme.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08), blurRadius: 12)],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 32, height: 32,
-            decoration: BoxDecoration(
-              color: AppTheme.accent.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(9),
-            ),
-            child: Center(
-              child: SizedBox(
-                width: 16, height: 16,
-                child: CustomPaint(
-                    painter: _SvgIcon(_MapIcons.season, AppTheme.accent)),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Season III · Active',
-                    style: GoogleFonts.inter(
-                        fontSize: 12, fontWeight: FontWeight.w700)),
-                Text(
-                  myClan != null
-                      ? '${myClan.name} — #1 in ${myClan.city ?? "City"}'
-                      : 'Join a clan to compete',
-                  style: GoogleFonts.inter(
-                      fontSize: 11, color: AppTheme.t3),
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text('12d',
-                  style: GoogleFonts.inter(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.accent)),
-              Text('left',
-                  style: GoogleFonts.inter(
-                      fontSize: 10, color: AppTheme.t3)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 
   // ── ARENA TOGGLE ──────────────────────────────────────────────────────────
   Widget _buildArenaToggle() {

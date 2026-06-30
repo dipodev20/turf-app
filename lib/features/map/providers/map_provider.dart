@@ -271,7 +271,7 @@ class RunNotifier extends Notifier<RunState> {
     }
 
     // Polygon preview:
-    // - Если близко к старту И прошли достаточно — показываем замкнутый контур
+    // - Если близко к старту И прошли достаточно — convex hull (гарантированно простой контур, без дырок)
     // - Иначе — буфер вдоль трека
     List<LatLng> poly;
     if (newPoints.length >= 3) {
@@ -279,8 +279,9 @@ class RunNotifier extends Notifier<RunState> {
           ? _dist.as(LengthUnit.Meter, newPoints.first, smoothed)
           : double.infinity;
       if (closingDist < 60 && newDist >= 0.1) {
-        // Замкнутый контур — заполненный полигон из точек трека
-        poly = [...newPoints, newPoints.first];
+        // Замкнутый контур — convex hull трека (без самопересечений)
+        final hull = convexHull(List.from(newPoints));
+        poly = hull.length >= 3 ? hull : [...newPoints, newPoints.first];
       } else {
         // Буфер вдоль линии
         poly = buildBufferPolygon(newPoints, 8.0);
@@ -342,7 +343,11 @@ class RunNotifier extends Notifier<RunState> {
     final area = _calcArea(points);
     if (area < 200) return; // минимум 200 кв.м
 
-    _captureTerritory(List.from(points));
+    // Строим convex hull — гарантированно простой полигон без самопересечений
+    final hull = convexHull(List.from(points));
+    if (hull.length < 3) return;
+
+    _captureTerritory(hull);
   }
 
   Future<void> _captureTerritory(List<LatLng> points) async {
