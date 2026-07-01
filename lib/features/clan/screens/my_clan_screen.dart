@@ -176,6 +176,19 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
     );
   }
 
+  // Extracts plain text from a message content, stripping any reply-quote
+  // wrapper so nested replies never carry old quote/pipe fragments forward.
+  String _extractPlainText(String content) {
+    if (content.startsWith('↩ ') && content.contains('|')) {
+      final firstPipe = content.indexOf('|');
+      final secondPipe = content.indexOf('|', firstPipe + 1);
+      if (firstPipe != -1 && secondPipe != -1) {
+        return content.substring(secondPipe + 1);
+      }
+    }
+    return content;
+  }
+
   // ── БАГ 5: Reply блок-цитата ──────────────────────────────────────────────
   Widget _buildMessageContent(ClanMessageModel msg, bool isMe) {
     // Формат: "↩ username|quoted text|actual text"
@@ -305,7 +318,7 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
                       Text('Replying to ${_replyingTo!.username}',
                           style: GoogleFonts.inter(fontSize: 11,
                               fontWeight: FontWeight.w700, color: AppTheme.accent)),
-                      Text(_replyingTo!.content,
+                      Text(_extractPlainText(_replyingTo!.content),
                           maxLines: 1, overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.inter(fontSize: 12, color: AppTheme.t3)),
                     ],
@@ -320,7 +333,9 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
           ),
 
         // Input
-        Container(
+        SafeArea(
+          top: false,
+          child: Container(
           color: AppTheme.white,
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
           child: Row(
@@ -334,6 +349,9 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
                   child: TextField(
                     controller: _msgController,
                     style: GoogleFonts.inter(fontSize: 14),
+                    minLines: 1,
+                    maxLines: 5,
+                    textInputAction: TextInputAction.newline,
                     decoration: InputDecoration(
                       hintText: 'Message the clan...',
                       hintStyle: GoogleFonts.inter(color: AppTheme.t3, fontSize: 14),
@@ -353,8 +371,10 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
                   setState(() => _replyingTo = null);
                   _msgController.clear();
                   // ── БАГ 5: правильный формат reply: "↩ username|quoted|text"
+                  final quoted =
+                      reply != null ? _extractPlainText(reply.content) : null;
                   final fullText = reply != null
-                      ? '↩ ${reply.username}|${reply.content}|$text'
+                      ? '↩ ${reply.username}|$quoted|$text'
                       : text;
                   ref.read(clanNotifierProvider.notifier)
                       .sendMessage(widget.clan.id, fullText);
@@ -376,6 +396,7 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
               ),
             ],
           ),
+        ),
         ),
       ],
     );
