@@ -12,32 +12,50 @@ import 'package:turf_app/core/constants/app_constants.dart';
 class KalmanFilter {
   double _lat, _lng, _variance;
   static const double _minAccuracy = 3.0;
+  static const double _maxVariance = 100.0;
+  double _lastSpeed = 0;
 
   KalmanFilter(double lat, double lng, double accuracy)
       : _lat = lat, _lng = lng, _variance = accuracy * accuracy;
 
-  LatLng update(double lat, double lng, double accuracy) {
+  LatLng update(double lat, double lng, double accuracy, double speedMs) {
     final q = max(accuracy * accuracy, _minAccuracy);
-    _variance += q;
+    
+    // Адаптивный process noise в зависимости от скорости
+    double processNoise;
+    if (speedMs < 1.0) {
+      processNoise = q * 0.3; // Меньше шума при медленном движении
+    } else if (speedMs < 3.0) {
+      processNoise = q * 0.6; // Средний шум для ходьбы
+    } else {
+      processNoise = q * 1.5; // Больше шума для бега/велосипеда
+    }
+    
+    _variance = min(_variance + processNoise, _maxVariance);
     final k = _variance / (_variance + q);
     _lat = _lat + k * (lat - _lat);
     _lng = _lng + k * (lng - _lng);
     _variance = (1 - k) * _variance;
+    _lastSpeed = speedMs;
     return LatLng(_lat, _lng);
   }
 
   LatLng get position => LatLng(_lat, _lng);
+  double get lastSpeed => _lastSpeed;
 }
 
 // ── STATIONARY DETECTOR (accelerometer) ─────────────────────────
 class StationaryDetector {
   final List<double> _buffer = [];
-  static const int _bufferSize = 30;
-  static const double _varianceThreshold = 0.18;
+  static const int _bufferSize = 20; // Уменьшено для быстрой реакции
+  static const double _varianceThreshold = 0.05; // Уменьшено для медленной ходьбы
+  static const double _walkingVariance = 0.12; // Типичная вариативность при ходьбе
+  int _consecutiveStationary = 0;
+  static const int _requiredStationary = 5; // Нужно 5 последовательных "стопов"
 
   void addSample(double x, double y, double z) {
     final magnitude = sqrt(x * x + y * y + z * z) - 9.81;
-    _buffer.add(magnitude);
+    _buffer.add(magnitude.abs()); // Используем абсолютное значение
     if (_buffer.length > _bufferSize) _buffer.removeAt(0);
   }
 
@@ -45,7 +63,16 @@ class StationaryDetector {
     if (_buffer.length < _bufferSize) return false;
     final mean = _buffer.reduce((a, b) => a + b) / _buffer.length;
     final variance = _buffer.map((v) => (v - mean) * (v - mean)).reduce((a, b) => a + b) / _buffer.length;
-    return variance < _varianceThreshold;
+    
+    bool currentlyStationary = variance < _varianceThreshold && mean < _walkingVariance;
+    
+    if (currentlyStationary) {
+      _consecutiveStationary++;
+    } else {
+      _consecutiveStationary = 0;
+    }
+    
+    return _consecutiveStationary >= _requiredStationary;
   }
 }
 
@@ -70,8 +97,11 @@ List<LatLng> convexHull(List<LatLng> points) {
                     (p.latitude - hull[hull.length-2].latitude) -
                     (hull[hull.length-1].latitude - hull[hull.length-2].latitude) *
                     (p.longitude - hull[hull.length-2].longitude);
-      if (cross <= 0) hull.removeLast();
-      else break;
+      if (cross <= 0) {
+        hull.removeLast();
+      } else {
+        break;
+      }
     }
     hull.add(p);
   }
@@ -214,6 +244,7 @@ class RunNotifier extends Notifier<RunState> {
   KalmanFilter? _kalman;
   Position? _lastPos;
   DateTime? _lastPosTime;
+  double _lastSpeed = 0;
   final _stationaryDetector = StationaryDetector();
 
   @override
@@ -267,8 +298,20 @@ class RunNotifier extends Notifier<RunState> {
           final d = _dist.as(LengthUnit.Meter,
               LatLng(_lastPos!.latitude, _lastPos!.longitude),
               LatLng(pos.latitude, pos.longitude));
-          if (d / elapsed > 12) return;
-          if (d < 1.5 && elapsed < 3) return;
+          
+          // Защита от телепорта: скорость > 20 м/с (72 км/ч) — явный выброс
+          if (d / elapsed > 20) return;
+          
+          // Фильтр для медленного движения: 
+          // разрешаем точки с интервалом > 2 секунд или расстоянием > 1 метра
+          if (d < 1.0 && elapsed < 2.0) return;
+          
+          // Проверка на реалистичность: ускорение не должно превышать 10 м/с²
+          if (_lastSpeed > 0) {
+            final acceleration = (d / elapsed - _lastSpeed) / elapsed;
+            if (acceleration.abs() > 10) return;
+          }
+          _lastSpeed = d / elapsed;
         }
       }
 
@@ -280,7 +323,7 @@ class RunNotifier extends Notifier<RunState> {
         _kalman = KalmanFilter(pos.latitude, pos.longitude, pos.accuracy);
         smoothed = LatLng(pos.latitude, pos.longitude);
       } else {
-        smoothed = _kalman!.update(pos.latitude, pos.longitude, pos.accuracy);
+        smoothed = _kalman!.update(pos.latitude, pos.longitude, pos.accuracy, pos.speed);
       }
 
       _onSmoothed(smoothed, pos.speed * 3.6, pos.accuracy);
@@ -303,11 +346,28 @@ class RunNotifier extends Notifier<RunState> {
       final closingDist = newPoints.length > 10
           ? _dist.as(LengthUnit.Meter, newPoints.first, smoothed)
           : double.infinity;
-      if (closingDist < 60 && newDist >= 0.1) {
-        final hull = convexHull(List.from(newPoints));
-        poly = hull.length >= 3 ? hull : [...newPoints, newPoints.first];
+      
+      // Проверяем замыкание: расстояние до старта < 40 метров
+      // и достаточно точек для формирования полигона
+      if (closingDist < 40 && newPoints.length >= 15 && newDist >= 0.1) {
+        // Замыкаем круг, добавляя первую точку в конец если нужно
+        final closedPoints = List<LatLng>.from(newPoints);
+        if (closingDist > 5) {
+          closedPoints.add(closedPoints.first); // Замыкаем кольцо
+        }
+        
+        // Фильтруем дубликаты и почти дубликаты
+        final filteredPoints = _filterClosePoints(closedPoints, 3.0); // мин. расстояние 3м
+        
+        if (filteredPoints.length >= 4) {
+          final hull = convexHull(filteredPoints);
+          poly = hull.length >= 4 ? hull : filteredPoints;
+        } else {
+          poly = buildBufferPolygon(filteredPoints, 10.0);
+        }
       } else {
-        poly = buildBufferPolygon(newPoints, 8.0);
+        // Для незамкнутого трека используем буфер большего размера
+        poly = buildBufferPolygon(newPoints, 10.0);
       }
     } else {
       poly = state.polygonPoints;
@@ -343,6 +403,29 @@ class RunNotifier extends Notifier<RunState> {
       "speed_kmh": speedKmh, "clan_id": userData?.clanId,
       "skin_id": userData?.skinId, "updated_at": DateTime.now().toIso8601String(),
     });
+  }
+
+  // Фильтрация точек, которые слишком близко друг к другу
+  List<LatLng> _filterClosePoints(List<LatLng> points, double minDistanceM) {
+    if (points.length < 2) return points;
+    
+    final filtered = <LatLng>[points.first];
+    for (int i = 1; i < points.length; i++) {
+      final d = _dist.as(LengthUnit.Meter, filtered.last, points[i]);
+      if (d >= minDistanceM) {
+        filtered.add(points[i]);
+      }
+    }
+    
+    // Проверяем расстояние между последней и первой точкой
+    if (filtered.length > 2) {
+      final d = _dist.as(LengthUnit.Meter, filtered.last, filtered.first);
+      if (d < minDistanceM && filtered.length > 3) {
+        filtered.removeLast();
+      }
+    }
+    
+    return filtered;
   }
 
   void _checkCapture(List<LatLng> points, double distKm) {
