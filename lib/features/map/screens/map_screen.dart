@@ -133,7 +133,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                   polylines: [
                     Polyline(
                       points: runState.routePoints,
-                      color: AppTheme.accent.withValues(alpha: 0.9),
+                      color: AppTheme.accent.withValues(alpha: 0.0),
                       strokeWidth: 2.5,
                       strokeCap: StrokeCap.round,
                       strokeJoin: StrokeJoin.round,
