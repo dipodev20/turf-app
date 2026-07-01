@@ -29,40 +29,23 @@ class KalmanFilter {
   LatLng get position => LatLng(_lat, _lng);
 }
 
-// ── STATIONARY DETECTOR (accelerometer) ─────────────────────────
-class StationaryDetector {
-  final List<double> _buffer = [];
-  static const int _bufferSize = 30;
-  static const double _varianceThreshold = 0.18;
-
-  void addSample(double x, double y, double z) {
-    final magnitude = sqrt(x * x + y * y + z * z) - 9.81;
-    _buffer.add(magnitude);
-    if (_buffer.length > _bufferSize) _buffer.removeAt(0);
-  }
-
-  bool get isStationary {
-    if (_buffer.length < _bufferSize) return false;
-    final mean = _buffer.reduce((a, b) => a + b) / _buffer.length;
-    final variance = _buffer.map((v) => (v - mean) * (v - mean)).reduce((a, b) => a + b) / _buffer.length;
-    return variance < _varianceThreshold;
-  }
-}
-
 // ── CONVEX HULL (Graham scan) ──────────────────────────────────
 List<LatLng> convexHull(List<LatLng> points) {
   if (points.length < 3) return points;
-
-  var pivot = points.reduce((a, b) =>
+  
+  // Find bottom-most point
+  var pivot = points.reduce((a, b) => 
     a.latitude < b.latitude || (a.latitude == b.latitude && a.longitude < b.longitude) ? a : b);
-
+  
+  // Sort by polar angle
   final sorted = points.where((p) => p != pivot).toList()
     ..sort((a, b) {
       final angleA = atan2(a.latitude - pivot.latitude, a.longitude - pivot.longitude);
       final angleB = atan2(b.latitude - pivot.latitude, b.longitude - pivot.longitude);
       return angleA.compareTo(angleB);
     });
-
+  
+  // Graham scan
   final hull = <LatLng>[pivot];
   for (final p in sorted) {
     while (hull.length > 1) {
@@ -83,7 +66,7 @@ List<LatLng> buildBufferPolygon(List<LatLng> path, double radiusMeters) {
   if (path.length < 2) return [];
   final List<LatLng> left = [], right = [];
   final buf = radiusMeters / 111320;
-
+  
   for (int i = 0; i < path.length; i++) {
     final p = path[i];
     double dLat, dLng;
@@ -142,6 +125,7 @@ final livePlayersProvider = StreamProvider<List<LivePlayerModel>>((ref) {
       .map((e) => LivePlayerModel.fromJson(e)).toList());
 });
 
+// Global Arena territories
 final globalTerritoriesProvider = StreamProvider<List<TerritoryModel>>((ref) {
   final supabase = ref.watch(supabaseProvider);
   return supabase.from("territories").stream(primaryKey: ["id"])
@@ -159,8 +143,7 @@ class RunState {
   final SpeedStatus speedStatus;
   final bool justCaptured;
   final LatLng? smoothedPosition;
-  final double gpsAccuracy;
-  final bool isStationary;
+  final double gpsAccuracy;      // For accuracy indicator
 
   const RunState({
     this.isRunning = false,
@@ -173,7 +156,6 @@ class RunState {
     this.justCaptured = false,
     this.smoothedPosition,
     this.gpsAccuracy = 0,
-    this.isStationary = false,
   });
 
   RunState copyWith({
@@ -187,7 +169,6 @@ class RunState {
     bool? justCaptured,
     LatLng? smoothedPosition,
     double? gpsAccuracy,
-    bool? isStationary,
   }) {
     return RunState(
       isRunning: isRunning ?? this.isRunning,
@@ -200,7 +181,6 @@ class RunState {
       justCaptured: justCaptured ?? this.justCaptured,
       smoothedPosition: smoothedPosition ?? this.smoothedPosition,
       gpsAccuracy: gpsAccuracy ?? this.gpsAccuracy,
-      isStationary: isStationary ?? this.isStationary,
     );
   }
 }
@@ -214,7 +194,7 @@ class RunNotifier extends Notifier<RunState> {
   KalmanFilter? _kalman;
   Position? _lastPos;
   DateTime? _lastPosTime;
-  final _stationaryDetector = StationaryDetector();
+  
 
   @override
   RunState build() {
@@ -240,34 +220,25 @@ class RunNotifier extends Notifier<RunState> {
     _timer = Timer.periodic(const Duration(seconds: 1), (_) =>
         state = state.copyWith(durationSeconds: state.durationSeconds + 1));
 
-    _accelSub = accelerometerEventStream().listen((event) {
-      _stationaryDetector.addSample(event.x, event.y, event.z);
-    });
-
     _positionSub = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.bestForNavigation,
         distanceFilter: 2,
       ),
     ).listen((pos) {
-      if (pos.accuracy > 22) return;
+      // Фильтр точности — отбрасываем плохие точки
+      if (pos.accuracy > 30) return;
 
-      final stationary = _stationaryDetector.isStationary;
-      if (stationary) {
-        state = state.copyWith(isStationary: true, gpsAccuracy: pos.accuracy);
-        return;
-      }
-      if (state.isStationary) {
-        state = state.copyWith(isStationary: false);
-      }
-
+      // Anti-teleport: максимум 8 м/с (бег ~29 км/ч)
       if (_lastPos != null && _lastPosTime != null) {
         final elapsed = DateTime.now().difference(_lastPosTime!).inMilliseconds / 1000.0;
         if (elapsed > 0) {
           final d = _dist.as(LengthUnit.Meter,
               LatLng(_lastPos!.latitude, _lastPos!.longitude),
               LatLng(pos.latitude, pos.longitude));
+          // Телепорт: скорость > 12 м/с (43 км/ч) — пропускаем
           if (d / elapsed > 12) return;
+          // Слишком малое смещение — шум GPS
           if (d < 1.5 && elapsed < 3) return;
         }
       }
@@ -275,6 +246,7 @@ class RunNotifier extends Notifier<RunState> {
       _lastPos = pos;
       _lastPosTime = DateTime.now();
 
+      // Kalman filter
       LatLng smoothed;
       if (_kalman == null) {
         _kalman = KalmanFilter(pos.latitude, pos.longitude, pos.accuracy);
@@ -298,15 +270,20 @@ class RunNotifier extends Notifier<RunState> {
       if (seg < 50) newDist += seg / 1000;
     }
 
+    // Polygon preview:
+    // - Если близко к старту И прошли достаточно — convex hull (гарантированно простой контур, без дырок)
+    // - Иначе — буфер вдоль трека
     List<LatLng> poly;
     if (newPoints.length >= 3) {
       final closingDist = newPoints.length > 10
           ? _dist.as(LengthUnit.Meter, newPoints.first, smoothed)
           : double.infinity;
       if (closingDist < 60 && newDist >= 0.1) {
+        // Замкнутый контур — convex hull трека (без самопересечений)
         final hull = convexHull(List.from(newPoints));
         poly = hull.length >= 3 ? hull : [...newPoints, newPoints.first];
       } else {
+        // Буфер вдоль линии
         poly = buildBufferPolygon(newPoints, 8.0);
       }
     } else {
@@ -321,7 +298,6 @@ class RunNotifier extends Notifier<RunState> {
       speedStatus: speedStatus,
       smoothedPosition: smoothed,
       gpsAccuracy: accuracy,
-      isStationary: false,
     );
 
     _updateLive(smoothed, speedKmh);
@@ -350,8 +326,11 @@ class RunNotifier extends Notifier<RunState> {
 
     final closingDist = _dist.as(LengthUnit.Meter, points.first, points.last);
 
+    // Замыкание: нужно вернуться в радиус 25м от старта
+    // И пройти минимум 150м
     if (closingDist > 25 || distKm < 0.15) return;
 
+    // Проверяем что был реальный обход — макс удаление от старта > 30м
     double maxD = 0;
     for (final p in points) {
       final d = _dist.as(LengthUnit.Meter, points.first, p);
@@ -359,9 +338,12 @@ class RunNotifier extends Notifier<RunState> {
     }
     if (maxD < 30) return;
 
+    // Проверяем что это реальный замкнутый контур а не прямая линия
+    // Площадь должна быть достаточной
     final area = _calcArea(points);
-    if (area < 200) return;
+    if (area < 200) return; // минимум 200 кв.м
 
+    // Строим convex hull — гарантированно простой полигон без самопересечений
     final hull = convexHull(List.from(points));
     if (hull.length < 3) return;
 

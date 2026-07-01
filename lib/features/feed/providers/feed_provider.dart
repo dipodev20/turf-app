@@ -118,6 +118,7 @@ class FeedNotifier extends AsyncNotifier<List<PostModel>> {
     required String content,
     String type = 'regular',
     File? imageFile,
+    List<File> imageFiles = const [],
     Map<String, dynamic>? metadata,
   }) async {
     final supabase = ref.read(supabaseProvider);
@@ -127,12 +128,18 @@ class FeedNotifier extends AsyncNotifier<List<PostModel>> {
     final userData = ref.read(currentUserProvider).value;
     if (userData?.clanId == null) return;
 
-    String? imageUrl;
-    if (imageFile != null) {
-      final fileName = 'posts/$userId/${DateTime.now().millisecondsSinceEpoch}.jpg';
-      await supabase.storage.from('media').upload(fileName, imageFile);
-      imageUrl = supabase.storage.from('media').getPublicUrl(fileName);
+    // Загружаем все фото (до 3)
+    final filesToUpload = imageFiles.isNotEmpty
+        ? imageFiles
+        : (imageFile != null ? [imageFile] : <File>[]);
+    final List<String> uploadedUrls = [];
+    for (int i = 0; i < filesToUpload.length && i < 3; i++) {
+      final ts = DateTime.now().millisecondsSinceEpoch;
+      final fileName = 'posts/$userId/${ts}_$i.jpg';
+      await supabase.storage.from('media').upload(fileName, filesToUpload[i]);
+      uploadedUrls.add(supabase.storage.from('media').getPublicUrl(fileName));
     }
+    final String? firstUrl = uploadedUrls.isNotEmpty ? uploadedUrls.first : null;
 
     final clanData = await supabase
         .from('clans')
@@ -150,7 +157,8 @@ class FeedNotifier extends AsyncNotifier<List<PostModel>> {
       'author_avatar_url': userData.avatarUrl,
       'type': type,
       'content': content,
-      'image_url': imageUrl,
+      'image_url': firstUrl,
+      'image_urls': uploadedUrls,
       'metadata': metadata,
       'like_count': 0,
       'comment_count': 0,

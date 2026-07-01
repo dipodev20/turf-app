@@ -3,7 +3,7 @@ import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 
-enum CropRatio { square, banner, flag }
+enum CropRatio { square, banner, flag, post }
 
 class ImageCropUtils {
   static final _picker = ImagePicker();
@@ -33,11 +33,30 @@ class ImageCropUtils {
       case CropRatio.flag:
         aspectRatio = const CropAspectRatio(ratioX: 3, ratioY: 2);
         break;
+      case CropRatio.post:
+        aspectRatio = const CropAspectRatio(ratioX: 4, ratioY: 3);
+        break;
+    }
+
+    // Финальный размер — фиксированный для каждого типа
+    int? maxW;
+    int? maxH;
+    if (ratio == CropRatio.square) {
+      maxW = 512; maxH = 512;
+    } else if (ratio == CropRatio.post) {
+      maxW = 1080; maxH = 810; // 4:3
+    } else if (ratio == CropRatio.banner) {
+      maxW = 1080; maxH = 608; // 16:9
+    } else if (ratio == CropRatio.flag) {
+      maxW = 900; maxH = 600; // 3:2
     }
 
     final cropped = await ImageCropper().cropImage(
       sourcePath: path,
       aspectRatio: aspectRatio,
+      maxWidth: maxW,
+      maxHeight: maxH,
+      compressQuality: 90,
       uiSettings: [
         AndroidUiSettings(
           toolbarTitle: title,

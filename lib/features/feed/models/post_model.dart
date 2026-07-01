@@ -8,6 +8,7 @@ class PostModel {
   final String type; // capture, war, achievement, regular
   final String? content;
   final String? imageUrl;
+  final List<String> imageUrls;
   final String? authorAvatarUrl;
   final Map<String, dynamic>? metadata;
   final int likeCount;
@@ -26,6 +27,7 @@ class PostModel {
     required this.type,
     this.content,
     this.imageUrl,
+    this.imageUrls = const [],
     this.authorAvatarUrl,
     this.metadata,
     this.likeCount = 0,
@@ -46,6 +48,9 @@ class PostModel {
       type: json['type'] ?? 'regular',
       content: json['content'],
       imageUrl: json['image_url'],
+      imageUrls: json['image_urls'] != null
+          ? List<String>.from(json['image_urls'])
+          : (json['image_url'] != null ? [json['image_url']] : []),
       authorAvatarUrl: json['author_avatar_url'],
       metadata: json['metadata'] as Map<String, dynamic>?,
       likeCount: json['like_count'] ?? 0,
@@ -56,7 +61,7 @@ class PostModel {
     );
   }
 
-  PostModel copyWith({bool? isLiked, int? likeCount, int? commentCount, String? authorAvatarUrl}) {
+  PostModel copyWith({bool? isLiked, int? likeCount, int? commentCount, String? authorAvatarUrl, List<String>? imageUrls}) {
     return PostModel(
       id: id, clanId: clanId, clanName: clanName, clanFlagUrl: clanFlagUrl,
       authorId: authorId, authorName: authorName, type: type,
@@ -64,6 +69,7 @@ class PostModel {
       likeCount: likeCount ?? this.likeCount,
       commentCount: commentCount ?? this.commentCount,
       isLiked: isLiked ?? this.isLiked,
+      imageUrls: imageUrls ?? this.imageUrls,
       authorAvatarUrl: authorAvatarUrl ?? this.authorAvatarUrl,
       city: city, createdAt: createdAt,
     );

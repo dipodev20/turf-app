@@ -281,7 +281,10 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
           if (post.type == 'war') _buildWarBanner(post),
           if (post.type == 'capture') _buildCaptureBanner(post),
           if (post.type == 'achievement') _buildAchievementBanner(post),
-          if (post.imageUrl != null && post.imageUrl!.isNotEmpty)
+          // Карусель фото
+          if (post.imageUrls.isNotEmpty)
+            _buildImageCarousel(post.imageUrls)
+          else if (post.imageUrl != null && post.imageUrl!.isNotEmpty)
             CachedNetworkImage(imageUrl: post.imageUrl!, fit: BoxFit.cover),
 
           Padding(
@@ -339,6 +342,74 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
           Divider(height: 1, color: AppTheme.sep),
         ],
       ),
+    );
+  }
+
+  Widget _buildImageCarousel(List<String> urls) {
+    if (urls.length == 1) {
+      return CachedNetworkImage(imageUrl: urls.first, fit: BoxFit.cover,
+          width: double.infinity);
+    }
+    final PageController ctrl = PageController();
+    return StatefulBuilder(
+      builder: (context, setState) {
+        int current = 0;
+        return StatefulBuilder(
+          builder: (context, setInner) => SizedBox(
+            height: 300,
+            child: Stack(
+              children: [
+                PageView.builder(
+                  controller: ctrl,
+                  onPageChanged: (i) => setInner(() => current = i),
+                  itemCount: urls.length,
+                  itemBuilder: (_, i) => CachedNetworkImage(
+                    imageUrl: urls[i],
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                  ),
+                ),
+                // Dots
+                Positioned(
+                  bottom: 10, left: 0, right: 0,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(urls.length, (i) =>
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: current == i ? 18 : 6,
+                        height: 6,
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        decoration: BoxDecoration(
+                          color: current == i
+                              ? Colors.white
+                              : Colors.white.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                // Counter
+                Positioned(
+                  top: 10, right: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.55),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text('${current + 1}/${urls.length}',
+                        style: GoogleFonts.inter(
+                            fontSize: 11, fontWeight: FontWeight.w600,
+                            color: Colors.white)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
