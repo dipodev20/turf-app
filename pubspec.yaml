@@ -61,7 +61,7 @@ dependencies:
   # Purchases
   purchases_flutter: ^8.0.0
   image_cropper: ^5.0.0
-  video_player: ^2.11.1
+  video_player: ^2.9.0
 
 dev_dependencies:
   flutter_test:
