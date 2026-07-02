@@ -351,6 +351,7 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
                     style: GoogleFonts.inter(fontSize: 14),
                     minLines: 1,
                     maxLines: 5,
+                    keyboardType: TextInputType.multiline,
                     textInputAction: TextInputAction.newline,
                     decoration: InputDecoration(
                       hintText: 'Message the clan...',
@@ -370,11 +371,24 @@ class _MyClanScreenState extends ConsumerState<MyClanScreen>
                   final reply = _replyingTo;
                   setState(() => _replyingTo = null);
                   _msgController.clear();
-                  // ── БАГ 5: правильный формат reply: "↩ username|quoted|text"
-                  final quoted =
-                      reply != null ? _extractPlainText(reply.content) : null;
+                  // Формат reply: "↩ username|quoted|text"
+                  // _extractPlainText убирает вложенные reply-обёртки
+                  // и pipe-символы из quoted чтобы не ломать парсер
+                  String? quoted;
+                  String? replyAuthor;
+                  if (reply != null) {
+                    quoted = _extractPlainText(reply.content)
+                        .replaceAll('|', ' ');
+                    // Если отвечаем на чужой reply — берём оригинального автора
+                    if (reply.content.startsWith('↩ ') && reply.content.contains('|')) {
+                      final fp = reply.content.indexOf('|');
+                      replyAuthor = reply.content.substring(2, fp);
+                    } else {
+                      replyAuthor = reply.username;
+                    }
+                  }
                   final fullText = reply != null
-                      ? '↩ ${reply.username}|$quoted|$text'
+                      ? '↩ $replyAuthor|$quoted|$text'
                       : text;
                   ref.read(clanNotifierProvider.notifier)
                       .sendMessage(widget.clan.id, fullText);
